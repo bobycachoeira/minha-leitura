@@ -26,9 +26,12 @@ cp apps/pocketbase/.env.example apps/pocketbase/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-> `apps/pocketbase/pb_hooks/lib/shared.js` é **gerado** por `pnpm build:hooks` a partir de
-> `packages/shared` e fica **versionado** (o Docker do PocketBase copia os hooks direto).
-> Ao mudar `packages/shared`, rode `pnpm build:hooks` e faça commit do arquivo gerado.
+## Manutenção
+
+- **`apps/pocketbase/pb_hooks/lib/shared.js` é gerado** por `pnpm build:hooks` a partir de
+  `packages/shared` e fica **versionado** (o Docker do PocketBase copia os hooks direto, sem
+  rodar o build do monorepo). **Ao alterar `packages/shared`, rode `pnpm build:hooks` e faça
+  commit do arquivo gerado** — senão os hooks de produção usam uma versão antiga do domínio.
 
 ## Comandos do monorepo
 
