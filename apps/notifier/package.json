@@ -1,0 +1,18 @@
+{
+  "name": "@ml/notifier",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "@types/web-push": "^3.6.4",
+    "typescript": "^5.4.5"
+  }
+}

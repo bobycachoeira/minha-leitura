@@ -1,0 +1,530 @@
+openapi: 3.0.3
+info:
+  title: Minha Leitura — Reading, Goals, Achievements & Feed API
+  version: 1.0.0
+  description: >
+    Acervo, progresso de páginas, metas/períodos (com compensação, dia de início e graça),
+    conquistas/card, dashboards, feed social, desafios e recomendações.
+servers:
+  - url: /api
+
+security:
+  - bearerAuth: []
+
+paths:
+  /catalog/search:
+    get:
+      summary: Busca metadados no catálogo externo gratuito (Open Library)
+      description: >
+        Retorna no máximo 10 resultados (FR-037). Resultados são cacheados no client com
+        TTL de 30 dias; timeout/backoff e falha externa degradam para lista vazia, sem
+        bloquear cadastro manual nem recomendações internas.
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: isbn, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10, default: 10 } }
+      responses:
+        '200':
+          description: Resultados (0–10); falha externa degrada para lista vazia
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 10
+                items: { $ref: '#/components/schemas/BookMeta' }
+
+  /books:
+    get:
+      summary: Lista livros do espaço
+      responses:
+        '200':
+          description: Livros
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Book' }
+    post:
+      summary: Cria um livro (manual ou a partir do catálogo)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookInput' }
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Book' }
+
+  /user-books:
+    get:
+      summary: Lista o acervo pessoal (filtro por status)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [quero_ler, lendo, lido, abandonado] } }
+      responses:
+        '200':
+          description: Itens do acervo
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UserBook' }
+    post:
+      summary: Adiciona um livro ao acervo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserBookInput' }
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserBook' }
+
+  /user-books/{id}:
+    patch:
+      summary: Atualiza status, página atual, avaliação, notas ou favorito
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserBookInput' }
+      responses:
+        '200':
+          description: Atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserBook' }
+
+  /reading-logs:
+    get:
+      summary: Lista lançamentos de páginas (por período/livro)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: book, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Lançamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ReadingLog' }
+    post:
+      summary: Registra páginas lidas em uma data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReadingLogInput' }
+      responses:
+        '201':
+          description: Criado; progresso e metas do período recalculados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReadingLog' }
+
+  /goals:
+    get:
+      summary: Lista metas do usuário no espaço
+      responses:
+        '200':
+          description: Metas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Goal' }
+    post:
+      summary: Cria uma meta (páginas|livros por dia|semana|mês)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoalInput' }
+      responses:
+        '201':
+          description: Criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Goal' }
+
+  /goals/{id}/periods:
+    get:
+      summary: Lista os períodos da meta (histórico + aberto)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Períodos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GoalPeriod' }
+
+  /goals/{id}/periods/current:
+    get:
+      summary: Período corrente com progresso, restantes e dias restantes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Período corrente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoalPeriod' }
+
+  /goal-periods/{id}/reopen:
+    post:
+      summary: Reabre um período fechado (owner/partner, exige step-up; ação auditada)
+      description: >
+        Restrito a membros com papel de edição (`owner | partner`); registra `reopened_at`
+        e `audit_logs` (before/after); retorna o período a `aberto` respeitando a graça e
+        dispara recálculo de progresso/status/streak/conquistas (FR-017).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/StepUpToken'
+      responses:
+        '200':
+          description: Reaberto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoalPeriod' }
+
+  /achievements:
+    get:
+      summary: Lista conquistas (com payload do card)
+      responses:
+        '200':
+          description: Conquistas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Achievement' }
+
+  /dashboard:
+    get:
+      summary: Resumo para dashboards (metas ativas, progresso, streak, páginas por dia)
+      responses:
+        '200':
+          description: Dados do dashboard
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dashboard' }
+
+  /feed:
+    get:
+      summary: Feed do espaço
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Itens do feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Post' }
+
+  /posts/{id}/reactions:
+    post:
+      summary: Reage a um post
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kind: { type: string, enum: [curtir, aplauso, forca], default: curtir }
+      responses:
+        '201': { description: Reação registrada }
+
+  /posts/{id}/comments:
+    get:
+      summary: Lista comentários
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Comentários
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Comment' }
+    post:
+      summary: Comenta em um post
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '201':
+          description: Comentário criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+
+  /challenges:
+    get:
+      summary: Lista desafios do espaço
+      responses:
+        '200':
+          description: Desafios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Challenge' }
+    post:
+      summary: Cria um desafio conjunto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChallengeInput' }
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Challenge' }
+
+  /recommendations:
+    get:
+      summary: Recomendações do usuário (com motivo)
+      responses:
+        '200':
+          description: Recomendações
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Recommendation' }
+
+  /recommendations/{id}/dismiss:
+    post:
+      summary: Descarta uma recomendação
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Descartada }
+
+  /recommendations/{id}/add:
+    post:
+      summary: Adiciona a recomendação ao acervo como quero_ler
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '201':
+          description: Adicionada ao acervo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserBook' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    StepUpToken:
+      name: X-Step-Up-Token
+      in: header
+      required: true
+      schema: { type: string }
+  schemas:
+    BookMeta:
+      type: object
+      properties:
+        source: { type: string, enum: [open_library, google_books, manual] }
+        externalId: { type: string }
+        title: { type: string }
+        authors: { type: array, items: { type: string } }
+        isbn: { type: string }
+        coverUrl: { type: string }
+        totalPages: { type: integer }
+        genres: { type: array, items: { type: string } }
+    BookInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        authors: { type: array, items: { type: string } }
+        isbn: { type: string }
+        coverUrl: { type: string }
+        totalPages: { type: integer }
+        genres: { type: array, items: { type: string } }
+        source: { type: string, enum: [manual, open_library, google_books] }
+        externalId: { type: string }
+        syncId: { type: string, format: uuid }
+    Book:
+      allOf:
+        - $ref: '#/components/schemas/BookInput'
+        - type: object
+          properties:
+            id: { type: string }
+            space: { type: string }
+    UserBookInput:
+      type: object
+      required: [book]
+      properties:
+        book: { type: string }
+        status: { type: string, enum: [quero_ler, lendo, lido, abandonado] }
+        currentPage: { type: integer }
+        rating: { type: number }
+        notes: { type: string }
+        favorite: { type: boolean }
+        startedAt: { type: string, format: date }
+        finishedAt: { type: string, format: date }
+        syncId: { type: string, format: uuid }
+    UserBook:
+      allOf:
+        - $ref: '#/components/schemas/UserBookInput'
+        - type: object
+          properties:
+            id: { type: string }
+            space: { type: string }
+            owner: { type: string }
+    ReadingLogInput:
+      type: object
+      required: [book, date, pages]
+      properties:
+        book: { type: string }
+        date: { type: string, format: date }
+        pages: { type: integer, minimum: 1 }
+        startPage: { type: integer }
+        endPage: { type: integer }
+        note: { type: string }
+        syncId: { type: string, format: uuid }
+    ReadingLog:
+      allOf:
+        - $ref: '#/components/schemas/ReadingLogInput'
+        - type: object
+          properties:
+            id: { type: string }
+            space: { type: string }
+            owner: { type: string }
+    GoalInput:
+      type: object
+      required: [metric, period, target]
+      properties:
+        metric: { type: string, enum: [paginas, livros] }
+        period: { type: string, enum: [dia, semana, mes] }
+        target: { type: integer, minimum: 1 }
+        weekStart: { type: integer, minimum: 0, maximum: 6, description: '0=domingo..6=sábado (usado em period=semana)' }
+        graceHours: { type: integer, minimum: 0, default: 24 }
+        startsOn: { type: string, format: date }
+        active: { type: boolean }
+        syncId: { type: string, format: uuid }
+    Goal:
+      allOf:
+        - $ref: '#/components/schemas/GoalInput'
+        - type: object
+          properties:
+            id: { type: string }
+            space: { type: string }
+            owner: { type: string }
+    GoalPeriod:
+      type: object
+      properties:
+        id: { type: string }
+        goal: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        target: { type: integer }
+        progress: { type: integer }
+        remaining: { type: integer }
+        daysRemaining: { type: integer }
+        status: { type: string, enum: [aberto, batida, nao_batida] }
+        graceUntil: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+        reopenedAt: { type: string, format: date-time, nullable: true }
+    Achievement:
+      type: object
+      properties:
+        id: { type: string }
+        goalPeriod: { type: string }
+        kind: { type: string, enum: [meta_batida, meta_nao_batida] }
+        payload: { type: object, description: 'páginas, alvo, período, livros, streak' }
+        cardTheme: { type: string }
+    Dashboard:
+      type: object
+      properties:
+        activeGoals:
+          type: array
+          items: { $ref: '#/components/schemas/GoalPeriod' }
+        streak: { type: integer }
+        pagesByDay:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              pages: { type: integer }
+    Post:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [livro_concluido, meta_batida, avanco, desafio, manual] }
+        actor: { type: string }
+        refBook: { type: string, nullable: true }
+        refAchievement: { type: string, nullable: true }
+        summary: { type: string }
+        reactionsCount: { type: integer }
+        commentsCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    Comment:
+      type: object
+      properties:
+        id: { type: string }
+        post: { type: string }
+        author: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    ChallengeInput:
+      type: object
+      required: [title, metric, target, period, startDate, endDate]
+      properties:
+        title: { type: string }
+        metric: { type: string, enum: [paginas, livros] }
+        target: { type: integer, minimum: 1 }
+        period: { type: string, enum: [semana, mes] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        graceHours: { type: integer, default: 24 }
+    Challenge:
+      allOf:
+        - $ref: '#/components/schemas/ChallengeInput'
+        - type: object
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [aberto, batida, nao_batida] }
+            progress: { type: integer }
+    Recommendation:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        authors: { type: array, items: { type: string } }
+        coverUrl: { type: string }
+        reason: { type: string }
+        source: { type: string, enum: [interno, open_library, google_books] }
+        score: { type: number }

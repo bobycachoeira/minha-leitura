@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: Minha Leitura — Auth, Spaces & Invites API
+  version: 1.0.0
+  description: >
+    Autenticação por Magic Link + 2FA TOTP step-up, espaços (casal) com RBAC e convites.
+    Regras de negócio e autorização SEMPRE no backend (hooks do PocketBase).
+servers:
+  - url: /api
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/magic-link/request:
+    post:
+      summary: Solicita um Magic Link de uso único
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '202':
+          description: Aceito (resposta genérica, não revela existência da conta)
+
+  /auth/magic-link/verify:
+    post:
+      summary: Verifica o token do Magic Link e cria a sessão
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Sessão criada (ou step-up pendente se 2FA ativo)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      summary: Renova o token de acesso
+      responses:
+        '200':
+          description: Novo token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
+
+  /auth/me:
+    get:
+      summary: Retorna o usuário autenticado
+      responses:
+        '200':
+          description: Usuário
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+
+  /auth/2fa/setup:
+    post:
+      summary: Inicia a configuração de TOTP (retorna segredo/otpauth e recovery codes)
+      responses:
+        '200':
+          description: Dados de setup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  otpauthUrl: { type: string }
+                  recoveryCodes:
+                    type: array
+                    items: { type: string }
+
+  /auth/2fa/confirm:
+    post:
+      summary: Confirma a configuração de TOTP com um código válido
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        '200': { description: 2FA ativado }
+
+  /auth/2fa/verify:
+    post:
+      summary: Valida um código TOTP (step-up) e emite X-Step-Up-Token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, pendingToken]
+              properties:
+                code: { type: string }
+                pendingToken: { type: string }
+      responses:
+        '200':
+          description: Step-up concedido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stepUpToken: { type: string }
+                  expiresAt: { type: string, format: date-time }
+
+  /auth/devices:
+    get:
+      summary: Lista dispositivos confiáveis
+      responses:
+        '200':
+          description: Dispositivos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Device' }
+    post:
+      summary: Marca o dispositivo atual como confiável (exige step-up)
+      parameters:
+        - $ref: '#/components/parameters/StepUpToken'
+      responses:
+        '201': { description: Dispositivo confiável criado }
+
+  /auth/devices/{id}:
+    delete:
+      summary: Revoga um dispositivo confiável (exige step-up)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/StepUpToken'
+      responses:
+        '204': { description: Revogado }
+
+  /spaces:
+    post:
+      summary: Cria um espaço (o criador vira owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '201':
+          description: Espaço criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Space' }
+
+  /spaces/{id}/members:
+    get:
+      summary: Lista membros do espaço
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Membros
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SpaceMember' }
+
+  /spaces/{id}/invites:
+    post:
+      summary: Convida um e-mail com um papel (exige step-up)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/StepUpToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [partner, viewer] }
+      responses:
+        '201':
+          description: Convite criado (token de uso único, expira em 15–30 min)
+
+  /invites/{token}/accept:
+    post:
+      summary: Aceita um convite
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { $ref: '#/components/responses/SpaceMemberResponse' }
+        '410': { description: Convite expirado ou já usado }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    StepUpToken:
+      name: X-Step-Up-Token
+      in: header
+      required: true
+      schema: { type: string }
+  responses:
+    Unauthorized:
+      description: Não autenticado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    SpaceMemberResponse:
+      description: Membro ativado no espaço
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SpaceMember' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+    SessionResponse:
+      type: object
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        stepUpRequired: { type: boolean }
+        pendingToken: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+        avatar: { type: string, nullable: true }
+        twofaEnabled: { type: boolean }
+    Space:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        settings: { type: object }
+        createdBy: { type: string }
+        syncId: { type: string, format: uuid }
+    SpaceMember:
+      type: object
+      properties:
+        id: { type: string }
+        space: { type: string }
+        user: { type: string }
+        role: { type: string, enum: [owner, partner, viewer] }
+        inviteStatus: { type: string, enum: [pending, accepted] }
+        joinedAt: { type: string, format: date }
+    Device:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        lastSeenAt: { type: string, format: date-time }

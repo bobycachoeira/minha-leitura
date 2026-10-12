@@ -1,0 +1,21 @@
+services:
+  pocketbase:
+    build:
+      context: ../apps/pocketbase
+      dockerfile: ../../docker/Dockerfile.pocketbase
+    container_name: ml-pocketbase
+    ports:
+      - '8090:8090'
+    environment:
+      CF_TIMEZONE: ${CF_TIMEZONE:-America/Sao_Paulo}
+      CF_ENCRYPTION_KEY: ${CF_ENCRYPTION_KEY:-dev-encryption-key}
+      CF_CORS_ORIGINS: ${CF_CORS_ORIGINS:-http://localhost:5173}
+      CF_STEPUP_TTL: ${CF_STEPUP_TTL:-600}
+      CF_APP_URL: ${CF_APP_URL:-http://localhost:5173}
+      CF_ADMIN_EMAIL: ${CF_ADMIN_EMAIL:-}
+      CF_ADMIN_NAME: ${CF_ADMIN_NAME:-Titular}
+    volumes:
+      - pb_data:/pb/pb_data
+
+volumes:
+  pb_data:

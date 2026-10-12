@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+!docker/.env.tunnel.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# PocketBase runtime
+apps/pocketbase/pb_data/
+apps/pocketbase/pocketbase
+
+# Local agent/tooling
+.opencode/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Test artifacts
+playwright-report/
+test-results/
+.vitest/

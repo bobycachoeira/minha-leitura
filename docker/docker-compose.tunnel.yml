@@ -1,0 +1,84 @@
+# Teste local com Cloudflare Tunnel (grátis, HTTPS, sem abrir portas no roteador).
+#
+# Sobe: Caddy (roteador HTTP) -> web (PWA) + PocketBase, e um cloudflared
+# (quick tunnel) publicando tudo numa URL https://<aleatorio>.trycloudflare.com.
+#
+# Use o script:  ./scripts/tunnel-up.sh
+# (ele descobre a URL do túnel e reinicia o PocketBase com CF_APP_URL correto).
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - web
+      - pocketbase
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://caddy:8080
+    depends_on:
+      - caddy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_VAPID_PUBLIC_KEY: ${CF_VAPID_PUBLIC_KEY:-}
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  pocketbase:
+    build:
+      context: ../apps/pocketbase
+      dockerfile: ../../docker/Dockerfile.pocketbase
+    restart: unless-stopped
+    expose:
+      - "8090"
+    environment:
+      CF_ENCRYPTION_KEY: ${CF_ENCRYPTION_KEY:-dev-insecure-encryption-key-change-me}
+      CF_APP_URL: ${CF_APP_URL:-http://localhost:8080}
+      CF_CORS_ORIGINS: ${CF_CORS_ORIGINS:-}
+      CF_ADMIN_EMAIL: ${CF_ADMIN_EMAIL:-}
+      CF_ADMIN_NAME: ${CF_ADMIN_NAME:-Titular}
+      CF_STEPUP_TTL: ${CF_STEPUP_TTL:-600}
+      CF_TIMEZONE: ${CF_TIMEZONE:-America/Sao_Paulo}
+      CF_MAIL_HOST: ${CF_MAIL_HOST:-}
+      CF_MAIL_PORT: ${CF_MAIL_PORT:-587}
+      CF_MAIL_USER: ${CF_MAIL_USER:-}
+      CF_MAIL_PASS: ${CF_MAIL_PASS:-}
+      CF_MAIL_FROM: ${CF_MAIL_FROM:-no-reply@minha-leitura.local}
+      CF_MAIL_TLS: ${CF_MAIL_TLS:-true}
+      CF_VAPID_PUBLIC_KEY: ${CF_VAPID_PUBLIC_KEY:-}
+    volumes:
+      - pb_data:/pb/pb_data
+
+  notifier:
+    profiles: ["notifier"]
+    build:
+      context: ../apps/notifier
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - pocketbase
+    environment:
+      PB_URL: http://pocketbase:8090
+      PB_ADMIN_EMAIL: ${CF_POCKETBASE_ADMIN_EMAIL:-}
+      PB_ADMIN_PASSWORD: ${CF_POCKETBASE_ADMIN_PASSWORD:-}
+      VAPID_PUBLIC_KEY: ${CF_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${CF_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${CF_VAPID_SUBJECT:-mailto:no-reply@minha-leitura.local}
+      NOTIFIER_INTERVAL_MS: ${CF_NOTIFIER_INTERVAL_MS:-60000}
+      CF_TIMEZONE: ${CF_TIMEZONE:-America/Sao_Paulo}
+
+volumes:
+  pb_data:
+  caddy_data:

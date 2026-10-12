@@ -1,0 +1,32 @@
+{
+  "name": "minha-leitura",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint . --ext .ts,.vue",
+    "format": "prettier --write .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test:shared": "pnpm --filter @ml/shared test",
+    "test:web": "pnpm --filter @ml/web test",
+    "test:contract": "pnpm --filter @ml/web test:contract",
+    "test:pb": "pnpm --filter @ml/pocketbase test",
+    "test:e2e": "pnpm --filter @ml/web test:e2e",
+    "build:hooks": "pnpm --filter @ml/shared build:hooks",
+    "dev:web": "pnpm --filter @ml/web dev"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.28.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5",
+    "vue-eslint-parser": "^9.4.3"
+  }
+}

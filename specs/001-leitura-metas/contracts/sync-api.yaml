@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: Minha Leitura — Sync API
+  version: 1.0.0
+  description: >
+    Sincronização offline-first: push em lote idempotente por `sync_id` e pull por delta
+    (cursor) incluindo soft deletes. O servidor é o source-of-truth; conflitos resolvem por
+    Last-Write-Wins no `updated_at` do servidor, com marcação `conflict=true`.
+servers:
+  - url: /api
+
+security:
+  - bearerAuth: []
+
+paths:
+  /sync/push:
+    post:
+      summary: Aplica um lote de operações da Outbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushRequest' }
+      responses:
+        '200':
+          description: Resultado por operação (aplicada, conflito, ignorada ou erro)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PushResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /sync/pull:
+    get:
+      summary: Retorna o delta de mudanças desde um cursor
+      parameters:
+        - name: since
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+          description: Último `seq` recebido (0 = início)
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+      responses:
+        '200':
+          description: Mudanças (inclui soft deletes) e próximo cursor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PullResponse' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  responses:
+    Unauthorized:
+      description: Não autenticado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+    EntityName:
+      type: string
+      enum: [books, user_books, reading_logs, goals, goal_periods, achievements, posts, reactions, comments, challenges]
+    Operation:
+      type: object
+      required: [entity, op, syncId, payload]
+      properties:
+        entity: { $ref: '#/components/schemas/EntityName' }
+        op: { type: string, enum: [create, update, delete] }
+        syncId: { type: string, format: uuid }
+        clientUpdatedAt: { type: string, format: date-time }
+        payload:
+          type: object
+          description: Corpo da entidade; em delete, contém ao menos `{ id }`
+    PushRequest:
+      type: object
+      required: [operations]
+      properties:
+        operations:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/Operation' }
+    OperationResult:
+      type: object
+      properties:
+        syncId: { type: string, format: uuid }
+        entity: { $ref: '#/components/schemas/EntityName' }
+        status: { type: string, enum: [applied, conflict, ignored, error] }
+        id: { type: string, nullable: true }
+        serverUpdatedAt: { type: string, format: date-time, nullable: true }
+        conflict: { type: boolean }
+        error:
+          type: object
+          nullable: true
+          properties:
+            code: { type: string }
+            message: { type: string }
+    PushResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/OperationResult' }
+    PullChange:
+      type: object
+      properties:
+        seq: { type: integer }
+        entity: { $ref: '#/components/schemas/EntityName' }
+        entityId: { type: string }
+        op: { type: string, enum: [upsert, delete] }
+        updatedAt: { type: string, format: date-time }
+        record:
+          type: object
+          nullable: true
+          description: Estado atual da entidade (null em delete)
+    PullResponse:
+      type: object
+      properties:
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/PullChange' }
+        nextSince: { type: integer }
+        hasMore: { type: boolean }
