@@ -43,6 +43,12 @@ export const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/retrospective',
+      name: 'retrospective',
+      component: () => import('../features/retro/RetrospectiveView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/recommend',
       name: 'recommend',
       component: () => import('../features/recommend/RecommendationsView.vue'),

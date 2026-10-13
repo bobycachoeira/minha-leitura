@@ -89,4 +89,7 @@ routerAdd("POST", "/api/notifications/read", (c) => require(`${__hooks}/lib/hand
 
 cronAdd("close-goal-periods", "*/15 * * * *", () => require(`${__hooks}/lib/handlers/goals.js`).cron_goals());
 
+// Retrospective push on the 1st day of the month (09:00).
+cronAdd("retrospective", "0 9 1 * *", () => require(`${__hooks}/lib/handlers/goals.js`).cron_retrospective());
+
 cronAdd("close-challenges", "*/15 * * * *", () => require(`${__hooks}/lib/handlers/feed.js`).cron_feed());

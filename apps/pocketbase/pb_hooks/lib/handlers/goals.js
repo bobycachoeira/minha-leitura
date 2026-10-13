@@ -359,6 +359,28 @@ function h_goals_get_api_milestones(c) {
   }))
 }
 
+// Monthly retrospective push (1st day of the month): queue a notification per user.
+function cron_retrospective() {
+  var members = $app.findRecordsByFilter('space_members', 'deleted_at = null', '', 0, 0, {})
+  var seen = {}
+  var collection = $app.findCollectionByNameOrId('notifications')
+  var created = 0
+  for (var i = 0; i < members.length; i++) {
+    var userId = members[i].getString('user')
+    if (!userId || seen[userId]) continue
+    seen[userId] = true
+    var notice = new Record(collection)
+    notice.set('user', userId)
+    notice.set('actor', userId)
+    notice.set('kind', 'retrospective')
+    notice.set('body', 'Sua retrospectiva do mês está pronta!')
+    notice.set('is_read', false)
+    $app.save(notice)
+    created += 1
+  }
+  if (created > 0) http.logStructured('retrospective.queued', { users: created })
+}
+
 module.exports = {
   h_goals_get_api_goals: h_goals_get_api_goals,
   h_goals_post_api_goals: h_goals_post_api_goals,
@@ -371,5 +393,6 @@ module.exports = {
   h_goals_get_api_streaks_status: h_goals_get_api_streaks_status,
   h_goals_post_api_streaks_freeze: h_goals_post_api_streaks_freeze,
   h_goals_get_api_milestones: h_goals_get_api_milestones,
-  cron_goals: cron_goals
+  cron_goals: cron_goals,
+  cron_retrospective: cron_retrospective,
 }

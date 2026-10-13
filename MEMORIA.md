@@ -66,6 +66,14 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   Hoje com “Começar”). Scanner de ISBN pela câmera (`BarcodeDetector`, com
   fallback manual).
 
+- **Fase 6 — Retrospectiva: ✅ concluída.** Tela `/retrospective` (Este mês / Mês
+  passado / Este ano / Ano passado) com resumo (páginas, livros, dias, sequência,
+  destaque, você × par) e **card compartilhável** (canvas). Push automático no 1º
+  dia do mês (cron `0 9 1 * *` + notifier).
+- **Ajuste Desejos × Estante: ✅.** Campo `owned` (com backfill): **Desejos** =
+  quero comprar; **Estante** = já tenho (pode ser a próxima leitura). A fila
+  “ler a seguir” agora sai da Estante (tenho + ainda não comecei).
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

@@ -107,6 +107,7 @@ function payloadFor(kind, actor, body) {
   if (kind === 'post') return { title, body: `${actor} publicou algo novo`, url: '/' }
   if (kind === 'period') return { title, body: body || 'Seu período de meta fechou', url: '/goals' }
   if (kind === 'milestone') return { title, body: body || 'Você desbloqueou uma conquista!', url: '/achievements' }
+  if (kind === 'retrospective') return { title, body: body || 'Sua retrospectiva está pronta!', url: '/retrospective' }
   if (kind === 'test') return { title, body: 'Tudo pronto! Você receberá as notificações.', url: '/' }
   return { title, body: `${actor} interagiu com você`, url: '/' }
 }
