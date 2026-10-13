@@ -1,5 +1,5 @@
 // Web Push (VAPID) sender. Delivers social notifications (likes/comments/
-// follows/feed/period) and a daily goal reminder, respecting each user's
+// follows/feed/period) plus smart reminders and nudges, respecting each user's
 // notification_preferences.
 
 const PB_URL = process.env.PB_URL ?? 'http://127.0.0.1:8090'
@@ -7,13 +7,26 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY ?? ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY ?? ''
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:no-reply@minha-leitura.test'
 const INTERVAL_MS = Number(process.env.NOTIFIER_INTERVAL_MS ?? 60 * 1000)
-const REMINDER_INTERVAL_MS = Number(process.env.NOTIFIER_REMINDER_MS ?? 24 * 60 * 60 * 1000)
+const TZ = process.env.CF_TIMEZONE ?? 'America/Sao_Paulo'
 
 function log(event, fields) {
   console.log(JSON.stringify({ event, at: new Date().toISOString(), ...fields }))
 }
 
-let lastReminderAt = Date.now()
+/** Local date/time in the configured timezone. */
+function nowInTz() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date())
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? '00'
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` }
+}
 
 async function adminToken() {
   const email = process.env.PB_ADMIN_EMAIL
@@ -30,8 +43,9 @@ async function adminToken() {
   return data.token ?? null
 }
 
-async function fetchPrefs(token) {
-  const res = await fetch(`${PB_URL}/api/collections/notification_preferences/records?perPage=500`, {
+async function listRecords(token, collection, filter) {
+  const query = filter ? `?perPage=500&filter=${encodeURIComponent(filter)}` : '?perPage=500'
+  const res = await fetch(`${PB_URL}/api/collections/${collection}/records${query}`, {
     headers: { Authorization: token },
   })
   if (!res.ok) return []
@@ -40,14 +54,7 @@ async function fetchPrefs(token) {
 }
 
 async function fetchUnpushed(token) {
-  const filter = encodeURIComponent('pushed_at = ""')
-  const res = await fetch(
-    `${PB_URL}/api/collections/notifications/records?perPage=100&sort=-created&filter=${filter}`,
-    { headers: { Authorization: token } },
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.items ?? []
+  return listRecords(token, 'notifications', 'pushed_at = ""')
 }
 
 async function fetchUserName(token, id, cache) {
@@ -67,6 +74,21 @@ async function fetchUserName(token, id, cache) {
   cache.set(id, name)
   return name
 }
+
+async function sendTo(prefs, payload, webpush) {
+  let sent = 0
+  for (const subscription of prefs.subscriptions ?? []) {
+    try {
+      await webpush.sendNotification(subscription, JSON.stringify(payload))
+      sent += 1
+    } catch (error) {
+      log('notifier.send_failed', { message: String(error) })
+    }
+  }
+  return sent
+}
+
+// ---------------------------------------------------------------- events
 
 function prefKeyFor(kind) {
   if (kind === 'like') return 'likes'
@@ -88,17 +110,8 @@ function payloadFor(kind, actor, body) {
   return { title, body: `${actor} interagiu com você`, url: '/' }
 }
 
-async function markPushed(token, id) {
-  await fetch(`${PB_URL}/api/collections/notifications/records/${id}`, {
-    method: 'PATCH',
-    headers: { Authorization: token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pushed_at: new Date().toISOString() }),
-  })
-}
-
-async function deliverEvents(token, webpush) {
-  const [prefsList, notifications] = await Promise.all([fetchPrefs(token), fetchUnpushed(token)])
-  const prefsByUser = new Map(prefsList.map((p) => [p.user, p]))
+async function deliverEvents(token, webpush, prefsByUser) {
+  const notifications = await fetchUnpushed(token)
   const nameCache = new Map()
   let sent = 0
   let skipped = 0
@@ -113,42 +126,113 @@ async function deliverEvents(token, webpush) {
       skipped += 1
     } else {
       const actor = await fetchUserName(token, n.actor, nameCache)
-      const payload = JSON.stringify(payloadFor(n.kind, actor, n.body))
-      for (const subscription of subs) {
-        try {
-          await webpush.sendNotification(subscription, payload)
-          sent += 1
-        } catch (error) {
-          log('notifier.send_failed', { message: String(error) })
-        }
-      }
+      sent += await sendTo(prefs, payloadFor(n.kind, actor, n.body), webpush)
     }
     await markPushed(token, n.id)
   }
   if (notifications.length > 0) log('notifier.events', { total: notifications.length, sent, skipped })
 }
 
-async function sendDailyReminder(token, webpush) {
-  const prefsList = await fetchPrefs(token)
-  const payload = JSON.stringify({
-    title: 'Minha Leitura',
-    body: 'Não esqueça de registrar sua leitura de hoje 📚',
-    url: '/',
+async function markPushed(token, id) {
+  await fetch(`${PB_URL}/api/collections/notifications/records/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pushed_at: new Date().toISOString() }),
   })
+}
+
+// ------------------------------------------------------- reminders/nudges
+
+const sentKeys = new Set()
+let lastDay = ''
+
+function resetDay(date) {
+  if (date !== lastDay) {
+    sentKeys.clear()
+    lastDay = date
+  }
+}
+
+/** Daily reminder at the user's chosen time, only if they didn't read (smart). */
+async function deliverReminders(token, webpush, prefsList, loggedToday) {
+  const { date, time } = nowInTz()
   let sent = 0
-  for (const record of prefsList) {
-    if (record.goal_reminders === false) continue
-    for (const subscription of record.subscriptions ?? []) {
-      try {
-        await webpush.sendNotification(subscription, payload)
-        sent += 1
-      } catch (error) {
-        log('notifier.send_failed', { message: String(error) })
-      }
+  for (const prefs of prefsList) {
+    if (prefs.goal_reminders === false) continue
+    if ((prefs.subscriptions ?? []).length === 0) continue
+    const target = prefs.reminder_time || '20:00'
+    if (time < target) continue
+    const key = `reminder:${prefs.user}`
+    if (sentKeys.has(key)) continue
+    if (prefs.smart_reminders !== false && loggedToday.has(prefs.user)) {
+      sentKeys.add(key)
+      continue
+    }
+    sent += await sendTo(
+      prefs,
+      { title: 'Minha Leitura', body: 'Não esqueça de registrar sua leitura de hoje 📚', url: '/' },
+      webpush,
+    )
+    sentKeys.add(key)
+  }
+  if (sent > 0) log('notifier.reminders', { date, time, sent })
+}
+
+/** "Your partner read today — and you?" (once a day, after 18:00). */
+async function deliverPartnerNudges(token, webpush, prefsList, loggedToday, members) {
+  const { time } = nowInTz()
+  if (time < '18:00') return
+  const nameCache = new Map()
+  let sent = 0
+  for (const prefs of prefsList) {
+    if (prefs.partner_nudges === false) continue
+    if ((prefs.subscriptions ?? []).length === 0) continue
+    const key = `partner:${prefs.user}`
+    if (sentKeys.has(key)) continue
+    if (loggedToday.has(prefs.user)) continue
+    const partners = members.filter((m) => m.space === prefs.space && m.user !== prefs.user)
+    const reader = partners.find((m) => loggedToday.has(m.user))
+    if (!reader) continue
+    const name = await fetchUserName(token, reader.user, nameCache)
+    sent += await sendTo(
+      prefs,
+      { title: 'Minha Leitura', body: `${name} leu hoje — e você? 📖`, url: '/' },
+      webpush,
+    )
+    sentKeys.add(key)
+  }
+  if (sent > 0) log('notifier.partner_nudges', { sent })
+}
+
+/** "You're X away from your goal" (once per period, after 12:00). */
+async function deliverNearGoal(token, webpush, prefsList, periods) {
+  const { time } = nowInTz()
+  if (time < '12:00') return
+  let sent = 0
+  for (const prefs of prefsList) {
+    if (prefs.near_goal_nudges === false) continue
+    if ((prefs.subscriptions ?? []).length === 0) continue
+    for (const period of periods) {
+      if (period.owner !== prefs.user) continue
+      const target = Number(period.target ?? 0)
+      const progress = Number(period.progress ?? 0)
+      if (target <= 0 || progress >= target) continue
+      if (progress / target < 0.7) continue
+      const key = `neargoal:${period.id}`
+      if (sentKeys.has(key)) continue
+      const left = target - progress
+      sent += await sendTo(
+        prefs,
+        { title: 'Minha Leitura', body: `Faltam ${left} para bater sua meta! 💪`, url: '/goals' },
+        webpush,
+      )
+      sentKeys.add(key)
     }
   }
-  log('notifier.reminder', { sent })
+  if (sent > 0) log('notifier.near_goal', { sent })
 }
+
+// ---------------------------------------------------------------- tick
 
 async function tick() {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
@@ -164,15 +248,33 @@ async function tick() {
     return
   }
 
-  await deliverEvents(token, webpush)
+  const { date } = nowInTz()
+  resetDay(date)
 
-  if (Date.now() - lastReminderAt >= REMINDER_INTERVAL_MS) {
-    await sendDailyReminder(token, webpush)
-    lastReminderAt = Date.now()
-  }
+  const prefsList = await listRecords(token, 'notification_preferences', '')
+  const prefsByUser = new Map(prefsList.map((p) => [p.user, p]))
+
+  await deliverEvents(token, webpush, prefsByUser)
+
+  const needsToday =
+    prefsList.some((p) => p.goal_reminders !== false || p.partner_nudges !== false)
+  const todayLogs = needsToday
+    ? await listRecords(token, 'reading_logs', `date >= "${date} 00:00:00.000Z"`)
+    : []
+  const loggedToday = new Set(todayLogs.map((l) => l.owner))
+
+  const needsMembers = prefsList.some((p) => p.partner_nudges !== false)
+  const members = needsMembers ? await listRecords(token, 'space_members', '') : []
+
+  const needsPeriods = prefsList.some((p) => p.near_goal_nudges !== false)
+  const periods = needsPeriods ? await listRecords(token, 'goal_periods', 'status = "aberto"') : []
+
+  await deliverReminders(token, webpush, prefsList, loggedToday)
+  await deliverPartnerNudges(token, webpush, prefsList, loggedToday, members)
+  await deliverNearGoal(token, webpush, prefsList, periods)
 }
 
-log('notifier.start', { intervalMs: INTERVAL_MS, reminderMs: REMINDER_INTERVAL_MS })
+log('notifier.start', { intervalMs: INTERVAL_MS, tz: TZ })
 setInterval(() => {
   void tick()
 }, INTERVAL_MS)

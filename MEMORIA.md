@@ -48,6 +48,12 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   persistente, nota + citação no registro e tela **Diário** (linha do tempo,
   busca, filtro por livro, “só citações”, compartilhar trecho).
 
+- **Fase 3 — Lembretes inteligentes + empurrões: ✅ concluída.** Notifier:
+  lembrete no horário escolhido (só se não leu hoje, quando “inteligente”),
+  empurrão do casal (após 18h) e “perto da meta” (≥70%, após 12h, 1×/período).
+  Preferências no Perfil: lembrete inteligente, empurrão do casal, perto da meta
+  e horário do lembrete.
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

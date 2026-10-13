@@ -5,7 +5,16 @@ import { useSessionStore } from '../../stores/session.js'
 import { usePush } from '../../composables/usePush.js'
 import AppIcon from '../../components/AppIcon.vue'
 
-type PrefKey = 'likes' | 'comments' | 'follows' | 'feed' | 'periodCloseReminders' | 'goalReminders'
+type PrefKey =
+  | 'likes'
+  | 'comments'
+  | 'follows'
+  | 'feed'
+  | 'periodCloseReminders'
+  | 'goalReminders'
+  | 'smartReminders'
+  | 'partnerNudges'
+  | 'nearGoalNudges'
 
 interface Prefs {
   likes: boolean
@@ -14,6 +23,10 @@ interface Prefs {
   feed: boolean
   periodCloseReminders: boolean
   goalReminders: boolean
+  smartReminders: boolean
+  partnerNudges: boolean
+  nearGoalNudges: boolean
+  reminderTime: string
 }
 
 const session = useSessionStore()
@@ -30,6 +43,10 @@ const prefs = ref<Prefs>({
   feed: true,
   periodCloseReminders: true,
   goalReminders: true,
+  smartReminders: true,
+  partnerNudges: true,
+  nearGoalNudges: true,
+  reminderTime: '',
 })
 const loading = ref(true)
 
@@ -40,6 +57,9 @@ const OPTIONS: Array<{ key: PrefKey; label: string; hint: string; icon: string }
   { key: 'feed', label: 'Novidades de quem eu sigo', hint: 'Quando alguém que você segue publica', icon: 'sparkles' },
   { key: 'periodCloseReminders', label: 'Fechamento de período', hint: 'Quando um período das suas metas fecha', icon: 'target' },
   { key: 'goalReminders', label: 'Lembretes de meta', hint: 'Um lembrete por dia para registrar a leitura', icon: 'bell' },
+  { key: 'smartReminders', label: 'Lembrete inteligente', hint: 'Só me avisa se eu ainda não registrei leitura hoje', icon: 'check' },
+  { key: 'partnerNudges', label: 'Empurrão do casal', hint: 'Quando seu par lê e você ainda não leu', icon: 'users' },
+  { key: 'nearGoalNudges', label: 'Perto da meta', hint: 'Quando você está perto de bater a meta', icon: 'target' },
 ]
 
 async function loadPrefs(): Promise<void> {
@@ -64,6 +84,21 @@ async function savePref(key: PrefKey, value: boolean): Promise<void> {
     })
   } catch {
     prefs.value = { ...prefs.value, [key]: !value }
+  }
+}
+
+async function saveTime(value: string): Promise<void> {
+  if (!session.spaceId) return
+  const previous = prefs.value.reminderTime
+  prefs.value = { ...prefs.value, reminderTime: value }
+  try {
+    await apiFetch('/api/notification-preferences', {
+      method: 'PUT',
+      query: { space: session.spaceId },
+      body: { reminderTime: value },
+    })
+  } catch {
+    prefs.value = { ...prefs.value, reminderTime: previous }
   }
 }
 
@@ -203,6 +238,21 @@ onMounted(async () => {
           @change="savePref(option.key, ($event.target as HTMLInputElement).checked)"
         />
       </label>
+
+      <div class="flex items-center gap-3 px-4 py-3">
+        <AppIcon name="bell" :size="18" class="text-ink-mute" />
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium text-ink">Horário do lembrete</span>
+          <span class="block text-xs text-ink-mute">A que horas avisar (vazio = 20:00)</span>
+        </span>
+        <input
+          type="time"
+          class="input !w-auto !py-1 text-sm"
+          :value="prefs.reminderTime"
+          :disabled="loading"
+          @change="saveTime(($event.target as HTMLInputElement).value)"
+        />
+      </div>
     </div>
   </section>
 </template>
