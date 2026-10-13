@@ -43,6 +43,11 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   + `partner`/`near_goal`/`retrospective`; coleções `milestones` e
   `streak_freezes`; `@ml/shared` e sync (push/pull/outbox) atualizados.
 
+- **Fase 2 — Registro rápido + Diário: ✅ concluída.** Card “Hoje” no Início
+  (meta do dia / “faltam X” / +10 / +20 páginas / continuar), timer de leitura
+  persistente, nota + citação no registro e tela **Diário** (linha do tempo,
+  busca, filtro por livro, “só citações”, compartilhar trecho).
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

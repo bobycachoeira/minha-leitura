@@ -22,6 +22,10 @@ interface LogEntry {
   date: string
   pages: number
   endPage?: number | null
+  minutes?: number | null
+  note?: string | null
+  quote?: string | null
+  quotePage?: number | null
 }
 
 const route = useRoute()
@@ -63,6 +67,10 @@ const logs = ref<LogEntry[]>([])
 const pages = ref<number | null>(null)
 const date = ref(new Date().toISOString().slice(0, 10))
 const endPage = ref<number | null>(null)
+const note = ref('')
+const quote = ref('')
+const quotePage = ref<number | null>(null)
+const detailsOpen = ref(false)
 
 const editingLogId = ref<string | null>(null)
 const editPages = ref<number | null>(null)
@@ -160,7 +168,16 @@ async function loadLogs(): Promise<void> {
   const rows = await db.readingLogs.where('book').equals(bookId.value).toArray()
   logs.value = rows
     .filter((row) => !row.deletedAt && row.owner === myId.value)
-    .map((row) => ({ id: row.id, date: row.date, pages: row.pages, endPage: row.endPage }))
+    .map((row) => ({
+      id: row.id,
+      date: row.date,
+      pages: row.pages,
+      endPage: row.endPage,
+      minutes: row.minutes,
+      note: row.note,
+      quote: row.quote,
+      quotePage: row.quotePage,
+    }))
     .sort((a, b) => (a.date < b.date ? 1 : -1))
 }
 
@@ -193,12 +210,19 @@ async function register(): Promise<void> {
       date: date.value,
       pages: loggedPages,
       endPage: endPage.value,
+      note: note.value.trim() || null,
+      quote: quote.value.trim() || null,
+      quotePage: quotePage.value,
     })
     if (endPage.value) {
       await library.updateUserBook(book.value.id, { currentPage: endPage.value })
     }
     pages.value = null
     endPage.value = null
+    note.value = ''
+    quote.value = ''
+    quotePage.value = null
+    detailsOpen.value = false
     await loadLogs()
 
     // Did this log hit one of my goals?
@@ -362,6 +386,24 @@ onMounted(async () => {
         <label class="block"><span class="label">Páginas lidas</span><input v-model.number="pages" type="number" min="1" class="input mt-1.5" /></label>
         <label class="block"><span class="label">Página atual</span><input v-model.number="endPage" type="number" min="1" class="input mt-1.5" placeholder="Opcional" /></label>
       </div>
+      <button type="button" class="btn btn-ghost btn-sm" @click="detailsOpen = !detailsOpen">
+        <AppIcon :name="detailsOpen ? 'close' : 'edit'" :size="15" />
+        {{ detailsOpen ? 'Fechar' : 'Nota / citação' }}
+      </button>
+      <div v-if="detailsOpen" class="space-y-3">
+        <label class="block">
+          <span class="label">Nota da sessão</span>
+          <textarea v-model="note" rows="2" maxlength="2000" class="textarea mt-1.5" placeholder="Como foi a leitura?" />
+        </label>
+        <label class="block">
+          <span class="label">Citação</span>
+          <textarea v-model="quote" rows="2" maxlength="2000" class="textarea mt-1.5" placeholder="Trecho que você gostou" />
+        </label>
+        <label class="block sm:w-40">
+          <span class="label">Página da citação</span>
+          <input v-model.number="quotePage" type="number" min="1" class="input mt-1.5" placeholder="Opcional" />
+        </label>
+      </div>
       <div class="flex justify-end">
         <button v-busy="registering" type="submit" class="btn btn-primary btn-sm" :disabled="registering"><AppIcon name="check" :size="15" /> Registrar</button>
       </div>
@@ -371,17 +413,25 @@ onMounted(async () => {
       <p class="eyebrow mb-3">Histórico de leitura</p>
       <ul class="divide-y divide-line/60">
         <li v-for="log in logs" :key="log.id" class="py-3">
-          <div v-if="editingLogId !== log.id" class="flex items-center justify-between gap-3">
-            <span class="text-sm text-ink-soft">{{ log.date }}</span>
-            <span class="flex-1 text-right text-sm font-semibold text-ink">{{ log.pages }} páginas</span>
-            <span class="flex items-center gap-1">
-              <button class="btn btn-ghost btn-sm !px-2" aria-label="Editar lançamento" @click="startEditLog(log)">
-                <AppIcon name="edit" :size="15" />
-              </button>
-              <button class="btn btn-ghost btn-sm !px-2 text-oxblood" aria-label="Remover lançamento" @click="removeLog(log)">
-                <AppIcon name="close" :size="15" />
-              </button>
-            </span>
+          <div v-if="editingLogId !== log.id" class="space-y-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-ink-soft">{{ log.date }}</span>
+              <span class="flex-1 text-right text-sm font-semibold text-ink">
+                {{ log.pages }} páginas<template v-if="log.minutes"> · {{ log.minutes }} min</template>
+              </span>
+              <span class="flex items-center gap-1">
+                <button class="btn btn-ghost btn-sm !px-2" aria-label="Editar lançamento" @click="startEditLog(log)">
+                  <AppIcon name="edit" :size="15" />
+                </button>
+                <button class="btn btn-ghost btn-sm !px-2 text-oxblood" aria-label="Remover lançamento" @click="removeLog(log)">
+                  <AppIcon name="close" :size="15" />
+                </button>
+              </span>
+            </div>
+            <p v-if="log.note" class="text-xs text-ink-mute">{{ log.note }}</p>
+            <p v-if="log.quote" class="border-l-2 border-oxblood/40 pl-2 text-sm italic text-ink-soft">
+              “{{ log.quote }}”<template v-if="log.quotePage"> — p. {{ log.quotePage }}</template>
+            </p>
           </div>
           <form v-else class="grid gap-2 sm:grid-cols-4" @submit.prevent="saveEditLog">
             <input v-model="editDate" type="date" class="input !py-1.5 text-sm" />

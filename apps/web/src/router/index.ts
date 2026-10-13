@@ -25,6 +25,12 @@ export const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/journal',
+      name: 'journal',
+      component: () => import('../features/journal/JournalView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/goals',
       name: 'goals',
       component: () => import('../features/dashboard/DashboardView.vue'),

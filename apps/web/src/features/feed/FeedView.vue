@@ -11,6 +11,7 @@ import { createPost, type CommentItem } from '../../api/feed-api.js'
 import { relativeTime } from '../../lib/format.js'
 import { daysLabel, formatDayMonth, remainingLabel } from '../../lib/format.js'
 import PartnerProgress from './PartnerProgress.vue'
+import TodayCard from '../dashboard/TodayCard.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
 import AchievementCard from '../../components/AchievementCard.vue'
@@ -129,6 +130,8 @@ watch(
       <h1 class="display-hero mt-1 text-3xl">Meu mural</h1>
       <p class="mt-1 text-sm text-ink-soft">Suas leituras e as de quem você segue, num só lugar.</p>
     </header>
+
+    <TodayCard />
 
     <PartnerProgress :members="members" />
 

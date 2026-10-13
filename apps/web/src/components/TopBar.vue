@@ -145,6 +145,9 @@ async function resetLocal(): Promise<void> {
           <RouterLink to="/challenges" class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-paper-sunken" @click="close">
             <AppIcon name="users" :size="18" /> Desafios do casal
           </RouterLink>
+          <RouterLink to="/journal" class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-paper-sunken" @click="close">
+            <AppIcon name="edit" :size="18" /> Diário
+          </RouterLink>
           <RouterLink to="/people" class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-paper-sunken" @click="close">
             <AppIcon name="users" :size="18" /> Pessoas que sigo
           </RouterLink>
