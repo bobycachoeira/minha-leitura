@@ -21,6 +21,9 @@ export const userBookSchema = syncableBaseSchema.extend({
   currentPage: z.number().int().min(0).default(0),
   rating: z.number().min(0).max(5).nullable().optional(),
   notes: z.string().nullable().optional(),
+  review: z.string().max(500).nullable().optional(),
+  reviewPublic: z.boolean().default(false),
+  queueOrder: z.number().int().nullable().optional(),
   favorite: z.boolean().default(false),
   startedAt: isoDateSchema.nullable().optional(),
   finishedAt: isoDateSchema.nullable().optional(),
@@ -33,7 +36,10 @@ export const readingLogSchema = syncableBaseSchema.extend({
   pages: z.number().int().min(1),
   startPage: z.number().int().nullable().optional(),
   endPage: z.number().int().nullable().optional(),
+  minutes: z.number().int().min(0).nullable().optional(),
   note: z.string().nullable().optional(),
+  quote: z.string().max(2000).nullable().optional(),
+  quotePage: z.number().int().nullable().optional(),
 })
 
 export type Book = z.infer<typeof bookSchema>

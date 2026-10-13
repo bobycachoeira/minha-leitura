@@ -126,6 +126,9 @@ export interface UserBookDraft {
   currentPage?: number
   rating?: number | null
   notes?: string | null
+  review?: string | null
+  reviewPublic?: boolean
+  queueOrder?: number | null
   favorite?: boolean
   startedAt?: string | null
   finishedAt?: string | null
@@ -148,6 +151,9 @@ export async function upsertLocalUserBook(
     currentPage: draft.currentPage ?? 0,
     rating: draft.rating ?? null,
     notes: draft.notes ?? null,
+    review: draft.review ?? null,
+    reviewPublic: draft.reviewPublic ?? false,
+    queueOrder: draft.queueOrder ?? null,
     favorite: draft.favorite ?? false,
     startedAt: draft.startedAt ?? null,
     finishedAt: draft.finishedAt ?? null,
@@ -172,6 +178,9 @@ export async function upsertLocalUserBook(
       currentPage: record.currentPage,
       rating: record.rating,
       notes: record.notes,
+      review: record.review,
+      reviewPublic: record.reviewPublic,
+      queueOrder: record.queueOrder,
       favorite: record.favorite,
       startedAt: record.startedAt,
       finishedAt: record.finishedAt,
@@ -189,7 +198,10 @@ export interface ReadingLogDraft {
   pages: number
   startPage?: number | null
   endPage?: number | null
+  minutes?: number | null
   note?: string | null
+  quote?: string | null
+  quotePage?: number | null
 }
 
 export async function addLocalReadingLog(draft: ReadingLogDraft): Promise<LocalReadingLog> {
@@ -205,7 +217,10 @@ export async function addLocalReadingLog(draft: ReadingLogDraft): Promise<LocalR
     pages: draft.pages,
     startPage: draft.startPage ?? null,
     endPage: draft.endPage ?? null,
+    minutes: draft.minutes ?? null,
     note: draft.note ?? null,
+    quote: draft.quote ?? null,
+    quotePage: draft.quotePage ?? null,
     updated: now,
     _dirty: true,
   }
@@ -227,7 +242,10 @@ export async function addLocalReadingLog(draft: ReadingLogDraft): Promise<LocalR
       pages: record.pages,
       startPage: record.startPage,
       endPage: record.endPage,
+      minutes: record.minutes,
       note: record.note,
+      quote: record.quote,
+      quotePage: record.quotePage,
     },
   })
   await db.readingLogs.update(record.id, { _pendingOutboxId: outboxId })
@@ -238,7 +256,10 @@ export interface ReadingLogPatch {
   date?: string
   pages?: number
   endPage?: number | null
+  minutes?: number | null
   note?: string | null
+  quote?: string | null
+  quotePage?: number | null
 }
 
 export async function updateLocalReadingLog(logId: string, patch: ReadingLogPatch): Promise<void> {
@@ -265,7 +286,10 @@ export async function updateLocalReadingLog(logId: string, patch: ReadingLogPatc
       pages: updated.pages,
       startPage: updated.startPage,
       endPage: updated.endPage,
+      minutes: updated.minutes,
       note: updated.note,
+      quote: updated.quote,
+      quotePage: updated.quotePage,
     },
   })
   await db.readingLogs.update(existing.id, { _pendingOutboxId: outboxId })

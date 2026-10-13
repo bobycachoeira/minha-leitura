@@ -8,7 +8,17 @@ function body(c) {
   return http.requestBody(c) || {}
 }
 
-var FLAGS = ['goal_reminders', 'period_close_reminders', 'likes', 'comments', 'follows', 'feed']
+var FLAGS = [
+  'goal_reminders',
+  'period_close_reminders',
+  'likes',
+  'comments',
+  'follows',
+  'feed',
+  'smart_reminders',
+  'partner_nudges',
+  'near_goal_nudges',
+]
 
 function findPrefs(spaceId, userId) {
   try {
@@ -31,6 +41,7 @@ function exportPrefs(prefs) {
     })
     out[camel] = prefs ? prefs.getBool(FLAGS[i]) : true
   }
+  out.reminderTime = prefs ? prefs.getString('reminder_time') || '' : ''
   return out
 }
 
@@ -62,12 +73,16 @@ function h_notifications_put_api_notification_preferences(c) {
     comments: 'comments',
     follows: 'follows',
     feed: 'feed',
+    smartReminders: 'smart_reminders',
+    partnerNudges: 'partner_nudges',
+    nearGoalNudges: 'near_goal_nudges',
   }
   for (var key in mapping) {
     if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined) {
       prefs.set(mapping[key], !!data[key])
     }
   }
+  if (typeof data.reminderTime === 'string') prefs.set('reminder_time', data.reminderTime)
   // Subscribing to push means the user wants the reminders (unless toggled off directly).
   if (data.subscription) {
     if (data.goalReminders === undefined) prefs.set('goal_reminders', true)
