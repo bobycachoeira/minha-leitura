@@ -60,6 +60,12 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   nas Metas. Badges de marcos (livros/páginas/streak) avaliados no motor de metas
   + notificação `milestone` + seção “Marcos” nas Conquistas.
 
+- **Fase 5 — Avaliação/resenha + Fila + Scanner: ✅ concluída.** Meia-estrela
+  (seletor 0.5), resenha com “visível para meu par” (+ compartilhar no mural e
+  ver a do par). Fila “ler a seguir” (reordenar nos Desejos; “próximo” no card
+  Hoje com “Começar”). Scanner de ISBN pela câmera (`BarcodeDetector`, com
+  fallback manual).
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

@@ -28,6 +28,11 @@ const selectedOwner = computed(() => (viewer.value === 'me' ? myId.value : viewe
 const shelf = computed(() => library.shelfFor(selectedOwner.value))
 const catalogShelf = computed(() => library.shelfFor(myId.value))
 const others = computed(() => members.members.filter((m) => !m.isSelf))
+const queue = computed(() => (viewer.value === 'me' ? library.myQueue() : []))
+
+function queueIndex(bookId: string): number {
+  return queue.value.findIndex((b) => b.book === bookId)
+}
 
 const shelfCount = computed(() => shelf.value.filter((e) => e.userBook && e.userBook.status !== 'quero_ler').length)
 const wishCount = computed(() => shelf.value.filter((e) => e.userBook?.status === 'quero_ler').length)
@@ -156,6 +161,12 @@ onMounted(() => {
         <div class="min-h-[2.6rem]">
           <p class="line-clamp-2-safe text-sm font-medium leading-snug text-ink">{{ entry.book.title }}</p>
           <p class="truncate text-xs text-ink-mute">{{ entry.book.authors.join(', ') || '—' }}</p>
+          <p
+            v-if="view === 'desejos' && viewer === 'me' && queueIndex(entry.book.id) === 0"
+            class="text-[0.62rem] font-semibold text-sage"
+          >
+            Próximo da fila
+          </p>
         </div>
         <template v-if="view === 'catalogo'">
           <button
@@ -169,13 +180,29 @@ onMounted(() => {
             {{ statusLabels[entry.userBook.status] }}
           </span>
         </template>
-        <button
-          v-else-if="view === 'desejos' && viewer === 'me'"
-          class="btn btn-secondary btn-sm mt-auto w-full"
-          @click="moveToShelf(entry.book.id)"
-        >
-          <AppIcon name="check" :size="15" /> Adquiri
-        </button>
+        <template v-else-if="view === 'desejos' && viewer === 'me'">
+          <div class="mt-auto flex items-center gap-1">
+            <button
+              class="btn btn-ghost btn-sm !px-2"
+              aria-label="Subir na fila"
+              :disabled="queueIndex(entry.book.id) <= 0"
+              @click="library.moveInQueue(entry.book.id, 'up')"
+            >
+              <AppIcon name="back" :size="14" class="rotate-90" />
+            </button>
+            <button
+              class="btn btn-ghost btn-sm !px-2"
+              aria-label="Descer na fila"
+              :disabled="queueIndex(entry.book.id) >= queue.length - 1"
+              @click="library.moveInQueue(entry.book.id, 'down')"
+            >
+              <AppIcon name="back" :size="14" class="-rotate-90" />
+            </button>
+            <button class="btn btn-secondary btn-sm ml-auto" @click="moveToShelf(entry.book.id)">
+              <AppIcon name="check" :size="15" /> Adquiri
+            </button>
+          </div>
+        </template>
       </li>
     </ul>
   </section>

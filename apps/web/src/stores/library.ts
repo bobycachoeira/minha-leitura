@@ -56,7 +56,19 @@ export const useLibraryStore = defineStore('library', () => {
   async function updateUserBook(
     bookId: string,
     patch: Partial<
-      Pick<LocalUserBook, 'status' | 'currentPage' | 'rating' | 'notes' | 'favorite' | 'finishedAt' | 'startedAt'>
+      Pick<
+        LocalUserBook,
+        | 'status'
+        | 'currentPage'
+        | 'rating'
+        | 'notes'
+        | 'review'
+        | 'reviewPublic'
+        | 'queueOrder'
+        | 'favorite'
+        | 'finishedAt'
+        | 'startedAt'
+      >
     >,
   ): Promise<void> {
     const perBook = await db.userBooks.where('book').equals(bookId).toArray()
@@ -70,8 +82,11 @@ export const useLibraryStore = defineStore('library', () => {
           book: existing.book,
           status: patch.status ?? existing.status,
           currentPage: patch.currentPage ?? existing.currentPage,
-          rating: patch.rating ?? existing.rating,
-          notes: patch.notes ?? existing.notes,
+          rating: patch.rating !== undefined ? patch.rating : existing.rating,
+          notes: patch.notes !== undefined ? patch.notes : existing.notes,
+          review: patch.review !== undefined ? patch.review : existing.review,
+          reviewPublic: patch.reviewPublic ?? existing.reviewPublic,
+          queueOrder: patch.queueOrder !== undefined ? patch.queueOrder : existing.queueOrder,
           favorite: patch.favorite ?? existing.favorite,
           finishedAt: patch.finishedAt !== undefined ? patch.finishedAt : existing.finishedAt,
           startedAt: patch.startedAt ?? existing.startedAt,
@@ -87,6 +102,9 @@ export const useLibraryStore = defineStore('library', () => {
         currentPage: patch.currentPage ?? 0,
         rating: patch.rating ?? null,
         notes: patch.notes ?? null,
+        review: patch.review ?? null,
+        reviewPublic: patch.reviewPublic ?? false,
+        queueOrder: patch.queueOrder ?? null,
         favorite: patch.favorite ?? false,
         finishedAt: patch.finishedAt ?? null,
         startedAt: patch.startedAt ?? null,
@@ -95,9 +113,49 @@ export const useLibraryStore = defineStore('library', () => {
     await load()
   }
 
+  /** Want-to-read queue (ordered) for the current user. */
+  function myQueue(): LocalUserBook[] {
+    return userBooksOf(currentOwner())
+      .filter((b) => !b.deletedAt && b.status === 'quero_ler')
+      .sort((a, b) => {
+        const qa = a.queueOrder ?? Number.MAX_SAFE_INTEGER
+        const qb = b.queueOrder ?? Number.MAX_SAFE_INTEGER
+        if (qa !== qb) return qa - qb
+        return String(a.updated ?? '') < String(b.updated ?? '') ? 1 : -1
+      })
+  }
+
+  async function moveInQueue(bookId: string, direction: 'up' | 'down'): Promise<void> {
+    const list = myQueue()
+    const index = list.findIndex((b) => b.book === bookId)
+    const target = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || target < 0 || target >= list.length) return
+    const reordered = [...list]
+    const [item] = reordered.splice(index, 1)
+    reordered.splice(target, 0, item!)
+    for (let i = 0; i < reordered.length; i += 1) {
+      const entry = reordered[i]!
+      await updateUserBook(entry.book, { queueOrder: i })
+    }
+  }
+
   function currentOwner(): string {
     return session.user?.id ?? ''
   }
 
-  return { books, userBooks, shelf, shelfFor, userBooksOf, ownerId, loading, load, addBook, updateBook, updateUserBook }
+  return {
+    books,
+    userBooks,
+    shelf,
+    shelfFor,
+    userBooksOf,
+    myQueue,
+    moveInQueue,
+    ownerId,
+    loading,
+    load,
+    addBook,
+    updateBook,
+    updateUserBook,
+  }
 })

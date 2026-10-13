@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { normalizeCoverUrl, normalizeIsbn, searchCatalog, searchCatalogServer } from '../../api/catalog.js'
 import type { CatalogBookMeta } from '@ml/shared'
 import type { UserBookDraft } from '../../db/repositories.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useSessionStore } from '../../stores/session.js'
 import AppIcon from '../../components/AppIcon.vue'
+import IsbnScanner from './IsbnScanner.vue'
 
 const library = useLibraryStore()
 const session = useSessionStore()
@@ -15,6 +16,18 @@ const results = ref<CatalogBookMeta[]>([])
 const searching = ref(false)
 const message = ref<string | null>(null)
 const selected = ref<CatalogBookMeta | null>(null)
+const scannerOpen = ref(false)
+const scannerSupported = ref(false)
+
+onMounted(() => {
+  scannerSupported.value = typeof window !== 'undefined' && 'BarcodeDetector' in window
+})
+
+function onDetected(code: string): void {
+  scannerOpen.value = false
+  query.value = code
+  void runSearch()
+}
 
 const title = ref('')
 const author = ref('')
@@ -105,6 +118,16 @@ async function addTo(status: UserBookDraft['status']): Promise<void> {
       <button v-busy="searching" type="button" class="btn btn-ink" :disabled="searching" @click="runSearch">
         {{ searching ? 'Buscando…' : 'Buscar' }}
       </button>
+      <button
+        v-if="scannerSupported"
+        type="button"
+        class="btn btn-secondary"
+        aria-label="Escanear ISBN com a câmera"
+        title="Escanear ISBN"
+        @click="scannerOpen = true"
+      >
+        <AppIcon name="camera" :size="18" />
+      </button>
     </div>
 
     <ul v-if="results.length" class="mt-3 divide-y divide-line/60 overflow-hidden rounded-xl border border-line">
@@ -153,5 +176,7 @@ async function addTo(status: UserBookDraft['status']): Promise<void> {
         <AppIcon name="books" :size="16" /> Estante
       </button>
     </div>
+
+    <IsbnScanner v-if="scannerOpen" @detected="onDetected" @close="scannerOpen = false" />
   </div>
 </template>

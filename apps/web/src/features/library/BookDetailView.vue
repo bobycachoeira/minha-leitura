@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { computeProgress, type CatalogBookMeta, type ReadStatus } from '@ml/shared'
 import { db } from '../../db/schema.js'
@@ -13,6 +13,7 @@ import { useMembersStore } from '../../stores/members.js'
 import { useSessionStore } from '../../stores/session.js'
 import BookCover from './BookCover.vue'
 import BookReview from './BookReview.vue'
+import BookRating from './BookRating.vue'
 import PublishPrompt from '../../components/PublishPrompt.vue'
 import FinishedPrompt from '../../components/FinishedPrompt.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
@@ -65,6 +66,44 @@ const partnerStatusText = computed(() => {
 })
 
 const isCurrentBook = computed(() => session.user?.currentBook === bookId.value)
+
+// ---- rating & review ----
+const reviewText = ref('')
+const reviewPublic = ref(false)
+const savingReview = ref(false)
+
+watch(
+  userBook,
+  (ub) => {
+    reviewText.value = ub?.review ?? ''
+    reviewPublic.value = ub?.reviewPublic ?? false
+  },
+  { immediate: true },
+)
+
+async function setRating(value: number | null): Promise<void> {
+  if (!book.value) return
+  await library.updateUserBook(book.value.id, { rating: value })
+}
+
+async function saveReview(): Promise<void> {
+  if (!book.value) return
+  savingReview.value = true
+  try {
+    await library.updateUserBook(book.value.id, {
+      review: reviewText.value.trim() || null,
+      reviewPublic: reviewPublic.value,
+    })
+  } finally {
+    savingReview.value = false
+  }
+}
+
+function shareReview(): void {
+  const text = reviewText.value.trim()
+  if (!text || !book.value) return
+  openPublish(`“${text}” — ${book.value.title}`)
+}
 
 async function setCurrentBook(): Promise<void> {
   if (!book.value) return
@@ -377,6 +416,41 @@ onMounted(async () => {
     </div>
 
     <p v-if="!book.coverUrl" class="chip !border-saffron/40 !text-saffron-600">Sem capa — use Editar → Buscar capa</p>
+
+    <div class="card space-y-3 p-4 sm:p-5">
+      <p class="eyebrow">Minha avaliação</p>
+      <BookRating :rating="userBook?.rating ?? null" @change="setRating" />
+      <label class="block">
+        <span class="label">Resenha (opcional)</span>
+        <textarea
+          v-model="reviewText"
+          rows="3"
+          maxlength="500"
+          class="textarea mt-1.5"
+          placeholder="O que você achou do livro?"
+        />
+      </label>
+      <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
+        <input v-model="reviewPublic" type="checkbox" class="toggle" />
+        Visível para meu par
+      </label>
+      <div class="flex flex-wrap justify-end gap-2">
+        <button v-if="reviewText.trim()" class="btn btn-ghost btn-sm" @click="shareReview">
+          <AppIcon name="sparkles" :size="15" /> Compartilhar no mural
+        </button>
+        <button v-busy="savingReview" class="btn btn-primary btn-sm" :disabled="savingReview" @click="saveReview">
+          <AppIcon name="check" :size="15" /> Salvar avaliação
+        </button>
+      </div>
+      <div v-if="partnerUserBook?.review && partnerUserBook.reviewPublic" class="border-t border-line/60 pt-3">
+        <p class="eyebrow mb-1">{{ partnerLabel }} avaliou</p>
+        <p v-if="partnerUserBook.rating" class="text-sm text-saffron-600">
+          {{ '★'.repeat(Math.round(partnerUserBook.rating)) }}
+          <span class="text-ink-mute"> {{ partnerUserBook.rating }}</span>
+        </p>
+        <p class="mt-1 text-sm text-ink-soft">{{ partnerUserBook.review }}</p>
+      </div>
+    </div>
 
     <form v-if="editing" class="card space-y-4 p-4 sm:p-5" @submit.prevent="save">
       <p class="eyebrow">Editar livro</p>

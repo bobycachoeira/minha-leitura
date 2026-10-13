@@ -30,6 +30,7 @@ const ICONS: Record<string, string> = {
   logout: '<path d="M9 4H5v16h4"/><path d="M16 12H9"/><path d="m13 8 4 4-4 4"/>',
   sync: '<path d="M20 11a8 8 0 0 0-14-4"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4"/><path d="M20 19v-4h-4"/>',
   space: '<path d="M4 5h16v14H4z"/><path d="M8 5v14"/>',
+  camera: '<path d="M4 8h3l1.6-2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.3"/>',
 }
 </script>
 

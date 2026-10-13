@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { todayISODate, DEFAULT_TIMEZONE } from '@ml/shared'
 import { db } from '../../db/schema.js'
 import { addLocalReadingLog } from '../../db/repositories.js'
+import { updateProfile } from '../../api/auth-api.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useGoalsStore } from '../../stores/goals.js'
 import { useSessionStore } from '../../stores/session.js'
@@ -46,6 +47,24 @@ const current = computed(() => {
 const dailyGoal = computed(
   () => goals.activeGoals.find((g) => g.goal.period === 'dia' && g.goal.metric === 'paginas') ?? null,
 )
+
+const nextInQueue = computed(() => {
+  const first = library.myQueue()[0]
+  if (!first) return null
+  return { userBook: first, book: library.books.find((b) => b.id === first.book) ?? null }
+})
+
+async function startNext(): Promise<void> {
+  const next = nextInQueue.value
+  if (!next) return
+  await library.updateUserBook(next.userBook.book, { status: 'lendo' })
+  try {
+    await updateProfile({ currentBook: next.userBook.book })
+  } catch {
+    // best-effort
+  }
+  toasts.push('Boa leitura! 📖', { kind: 'success' })
+}
 
 function mmss(seconds: number): string {
   const s = Math.max(0, seconds)
@@ -194,8 +213,25 @@ onMounted(async () => {
     </template>
 
     <div v-else class="mt-3">
-      <p class="text-sm text-ink-soft">Você não tem um livro em leitura.</p>
-      <RouterLink to="/library" class="btn btn-secondary btn-sm mt-2">Comece um livro</RouterLink>
+      <template v-if="nextInQueue">
+        <p class="text-sm text-ink-soft">Próximo da fila:</p>
+        <div class="mt-1 flex items-center gap-3">
+          <RouterLink :to="`/library/${nextInQueue.userBook.book}`" class="w-12 shrink-0">
+            <BookCover
+              :book-id="nextInQueue.userBook.book"
+              :title="nextInQueue.book?.title ?? ''"
+              :author="nextInQueue.book?.authors?.[0]"
+              :cover-url="nextInQueue.book?.coverUrl"
+            />
+          </RouterLink>
+          <p class="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{{ nextInQueue.book?.title ?? 'Livro' }}</p>
+          <button class="btn btn-primary btn-sm shrink-0" @click="startNext">Começar</button>
+        </div>
+      </template>
+      <template v-else>
+        <p class="text-sm text-ink-soft">Você não tem um livro em leitura.</p>
+        <RouterLink to="/library" class="btn btn-secondary btn-sm mt-2">Comece um livro</RouterLink>
+      </template>
     </div>
   </section>
 </template>
