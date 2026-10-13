@@ -1,17 +1,26 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
+
+// Backend de teste: PocketBase efêmero subido pela fixture (porta 8091).
+const API_URL = 'http://127.0.0.1:8091'
+const APP_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5174'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 60_000,
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: [['list']],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
+    baseURL: APP_URL,
     trace: 'on-first-retry',
   },
-  webServer: process.env.E2E_BASE_URL
-    ? undefined
-    : {
-        command: 'pnpm dev',
-        url: 'http://localhost:5173',
-        reuseExistingServer: true,
-      },
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  webServer: {
+    command: 'pnpm exec vite --port 5174 --strictPort',
+    url: APP_URL,
+    reuseExistingServer: false,
+    timeout: 120_000,
+    env: { VITE_API_URL: API_URL },
+  },
 })

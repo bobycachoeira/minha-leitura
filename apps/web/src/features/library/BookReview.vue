@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { READ_STATUSES, type ReadStatus } from '@ml/shared'
 import type { LocalBook } from '../../db/schema.js'
 
 const props = defineProps<{ book: LocalBook; status?: ReadStatus }>()
 const emit = defineEmits<{ changed: [ReadStatus] }>()
 const localStatus = ref<ReadStatus>(props.status ?? 'quero_ler')
+
+// Keep in sync when the user_book loads/updates after mount.
+watch(
+  () => props.status,
+  (next) => {
+    localStatus.value = next ?? 'quero_ler'
+  },
+)
 
 const statusLabels: Record<ReadStatus, string> = {
   quero_ler: 'Desejo ler',

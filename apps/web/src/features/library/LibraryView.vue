@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ReadStatus } from '@ml/shared'
 import type { LocalBook, LocalUserBook } from '../../db/schema.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useMembersStore } from '../../stores/members.js'
 import { useSessionStore } from '../../stores/session.js'
+import { useSyncStore } from '../../stores/sync.js'
 import BookCover from './BookCover.vue'
 import BookForm from './BookForm.vue'
 import AppIcon from '../../components/AppIcon.vue'
@@ -16,6 +17,7 @@ type View = 'estante' | 'desejos' | 'catalogo'
 const library = useLibraryStore()
 const members = useMembersStore()
 const session = useSessionStore()
+const sync = useSyncStore()
 const showForm = ref(false)
 const view = ref<View>('estante')
 const statusFilter = ref<ReadStatus | 'todos'>('todos')
@@ -90,6 +92,12 @@ onMounted(() => {
   void library.load()
   void members.load()
 })
+
+// Refresh the shelf when a background sync brings new data.
+watch(
+  () => sync.lastSyncedAt,
+  () => void library.load(),
+)
 </script>
 
 <template>

@@ -74,6 +74,21 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   quero comprar; **Estante** = já tenho (pode ser a próxima leitura). A fila
   “ler a seguir” agora sai da Estante (tenho + ainda não comecei).
 
+## Testes E2E (Playwright)
+
+- `pnpm --filter @ml/web test:e2e` sobe um **PocketBase efêmero** (binário em
+  `apps/pocketbase/pocketbase`, não versionado — copiar do controle-financeiro ou
+  baixar do GitHub) + Vite na `:5174`, e roda os fluxos com duas personas:
+  **marido (lê menos)** e **esposa (lê mais)**.
+- Cobre: autenticação (Magic Link + 2FA), Estante/Desejos, fila “ler a seguir”,
+  registro de leitura (inclui regressão de duplicata), metas, diário, mural,
+  retrospectiva, marcos e sync offline.
+- CI: job `e2e` baixa o PocketBase 0.23.7 e instala o Chromium.
+- Bugs reais encontrados/corrigidos graças aos E2E: `stepUpToken` não era
+  devolvido (assinatura do `recordAuthResponse`), convidado não ganhava conta
+  (só o admin), `owned` ignorado nos endpoints diretos, e listas não recarregavam
+  após o sync (ids “velhos”).
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

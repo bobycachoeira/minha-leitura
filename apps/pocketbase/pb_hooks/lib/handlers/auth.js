@@ -19,26 +19,34 @@ function body(c) {
 }
 
 /**
- * Provisions the bootstrap account on first Magic Link when CF_ADMIN_EMAIL is
- * set (mirrors the controle-financeiro pattern). Keeps testing friction low.
+ * Provisions the account on first Magic Link when the email is the bootstrap
+ * admin (CF_ADMIN_EMAIL) or has a pending invite (couple onboarding).
  */
-function ensureAdminUser(email) {
-  var adminEmail = ($os.getenv('CF_ADMIN_EMAIL') || '').toLowerCase().trim()
-  if (!adminEmail || email !== adminEmail) return
+function ensureUser(email) {
   try {
     $app.findAuthRecordByEmail('users', email)
     return
   } catch (e) {
-    // not found — create below
+    // not found — maybe create below
   }
+  var adminEmail = ($os.getenv('CF_ADMIN_EMAIL') || '').toLowerCase().trim()
+  var isAdmin = adminEmail !== '' && email === adminEmail
+  var hasInvite = false
+  try {
+    $app.findFirstRecordByFilter('invites', 'email_invited = {:email} && used_at = null', { email: email })
+    hasInvite = true
+  } catch (e2) {
+    hasInvite = false
+  }
+  if (!isAdmin && !hasInvite) return
   var collection = $app.findCollectionByNameOrId('users')
   var user = new Record(collection)
   user.set('email', email)
-  user.set('name', $os.getenv('CF_ADMIN_NAME') || 'Titular')
+  user.set('name', isAdmin ? $os.getenv('CF_ADMIN_NAME') || 'Titular' : email.split('@')[0] || 'Leitor(a)')
   user.set('active', true)
   user.setPassword($security.randomString(32))
   $app.save(user)
-  http.logStructured('auth.admin_created', { email: email })
+  http.logStructured('auth.user_created', { email: email, invited: hasInvite })
 }
 
 function requestMagicLinkHandler(c) {
@@ -49,7 +57,7 @@ function requestMagicLinkHandler(c) {
   var limit = ratelimit.magicLink(email)
   if (!limit.allowed) return http.fail(c, 429, 'rate_limited', 'Muitas solicitações; aguarde')
 
-  ensureAdminUser(email)
+  ensureUser(email)
   var token = magicLink.create(email)
   var appUrl = $os.getenv('CF_APP_URL') || 'http://localhost:5173'
   var link = appUrl + '/login?token=' + token
@@ -158,7 +166,7 @@ function verify2faHandler(c) {
   user.set('last_login_at', new Date().toISOString())
   $app.save(user)
   // Issue the session token and expose the step-up token in `meta`.
-  return $apis.recordAuthResponse(c, user, { stepUpToken: token })
+  return $apis.recordAuthResponse(c, user, 'totp', { stepUpToken: token })
 }
 
 function meHandler(c) {

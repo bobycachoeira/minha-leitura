@@ -11,6 +11,7 @@ import { useLibraryStore } from '../../stores/library.js'
 import { useGoalsStore } from '../../stores/goals.js'
 import { useMembersStore } from '../../stores/members.js'
 import { useSessionStore } from '../../stores/session.js'
+import { useSyncStore } from '../../stores/sync.js'
 import BookCover from './BookCover.vue'
 import BookReview from './BookReview.vue'
 import BookRating from './BookRating.vue'
@@ -36,6 +37,7 @@ const library = useLibraryStore()
 const goals = useGoalsStore()
 const members = useMembersStore()
 const session = useSessionStore()
+const sync = useSyncStore()
 
 const myId = computed(() => session.user?.id ?? '')
 const bookId = computed(() => String(route.params.id))
@@ -387,6 +389,13 @@ onMounted(async () => {
   await goals.load()
   await loadLogs()
 })
+
+// After a background sync the local records get the server ids; reload the
+// history so edit/remove target the current records.
+watch(
+  () => sync.lastSyncedAt,
+  () => void loadLogs(),
+)
 </script>
 
 <template>
