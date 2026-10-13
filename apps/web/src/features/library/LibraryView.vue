@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ReadStatus } from '@ml/shared'
+import type { LocalBook, LocalUserBook } from '../../db/schema.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useMembersStore } from '../../stores/members.js'
 import { useSessionStore } from '../../stores/session.js'
@@ -34,16 +35,25 @@ function queueIndex(bookId: string): number {
   return queue.value.findIndex((b) => b.book === bookId)
 }
 
-const shelfCount = computed(() => shelf.value.filter((e) => e.userBook && e.userBook.status !== 'quero_ler').length)
-const wishCount = computed(() => shelf.value.filter((e) => e.userBook?.status === 'quero_ler').length)
+const shelfCount = computed(() => shelf.value.filter((e) => isOwned(e.userBook)).length)
+const wishCount = computed(() => shelf.value.filter((e) => isWish(e.userBook)).length)
 const catalogCount = computed(() => library.books.length)
+
+type ShelfEntry = { book: LocalBook; userBook: LocalUserBook | null }
+
+function isOwned(ub: ShelfEntry['userBook']): boolean {
+  return !!ub && (ub.owned || ub.status !== 'quero_ler')
+}
+function isWish(ub: ShelfEntry['userBook']): boolean {
+  return !!ub && ub.status === 'quero_ler' && !ub.owned
+}
 
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
   const base = view.value === 'catalogo' ? catalogShelf.value : shelf.value
   let pool = base
-  if (view.value === 'estante') pool = base.filter((e) => e.userBook && e.userBook.status !== 'quero_ler')
-  else if (view.value === 'desejos') pool = base.filter((e) => e.userBook?.status === 'quero_ler')
+  if (view.value === 'estante') pool = base.filter((e) => isOwned(e.userBook))
+  else if (view.value === 'desejos') pool = base.filter((e) => isWish(e.userBook))
   return pool.filter(({ book, userBook }) => {
     const matchesStatus =
       view.value !== 'estante' || statusFilter.value === 'todos' || userBook?.status === statusFilter.value
@@ -65,6 +75,11 @@ const statusLabels: Record<ReadStatus | 'todos', string> = {
 
 async function moveToShelf(bookId: string): Promise<void> {
   await library.updateUserBook(bookId, { status: 'lendo' })
+}
+
+/** Marks a wishlist book as owned (moves it to the shelf, still "to read"). */
+async function markOwned(bookId: string): Promise<void> {
+  await library.updateUserBook(bookId, { owned: true })
 }
 
 async function addToCatalog(bookId: string): Promise<void> {
@@ -162,7 +177,13 @@ onMounted(() => {
           <p class="line-clamp-2-safe text-sm font-medium leading-snug text-ink">{{ entry.book.title }}</p>
           <p class="truncate text-xs text-ink-mute">{{ entry.book.authors.join(', ') || '—' }}</p>
           <p
-            v-if="view === 'desejos' && viewer === 'me' && queueIndex(entry.book.id) === 0"
+            v-if="
+              view === 'estante' &&
+              viewer === 'me' &&
+              entry.userBook?.owned &&
+              entry.userBook.status === 'quero_ler' &&
+              queueIndex(entry.book.id) === 0
+            "
             class="text-[0.62rem] font-semibold text-sage"
           >
             Próximo da fila
@@ -180,7 +201,7 @@ onMounted(() => {
             {{ statusLabels[entry.userBook.status] }}
           </span>
         </template>
-        <template v-else-if="view === 'desejos' && viewer === 'me'">
+        <template v-else-if="view === 'estante' && viewer === 'me' && entry.userBook?.owned && entry.userBook.status === 'quero_ler'">
           <div class="mt-auto flex items-center gap-1">
             <button
               class="btn btn-ghost btn-sm !px-2"
@@ -198,10 +219,15 @@ onMounted(() => {
             >
               <AppIcon name="back" :size="14" class="-rotate-90" />
             </button>
-            <button class="btn btn-secondary btn-sm ml-auto" @click="moveToShelf(entry.book.id)">
-              <AppIcon name="check" :size="15" /> Adquiri
+            <button class="btn btn-primary btn-sm ml-auto" @click="moveToShelf(entry.book.id)">
+              <AppIcon name="books" :size="15" /> Ler
             </button>
           </div>
+        </template>
+        <template v-else-if="view === 'desejos' && viewer === 'me'">
+          <button class="btn btn-secondary btn-sm mt-auto w-full" @click="markOwned(entry.book.id)">
+            <AppIcon name="check" :size="15" /> Adquiri
+          </button>
         </template>
       </li>
     </ul>

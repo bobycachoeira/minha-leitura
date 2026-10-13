@@ -123,6 +123,11 @@ async function setCurrentBook(): Promise<void> {
   }
 }
 
+async function setOwned(value: boolean): Promise<void> {
+  if (!book.value) return
+  await library.updateUserBook(book.value.id, { owned: value })
+}
+
 const logs = ref<LogEntry[]>([])
 const pages = ref<number | null>(null)
 const date = ref(new Date().toISOString().slice(0, 10))
@@ -411,6 +416,10 @@ onMounted(async () => {
           <button v-else class="btn btn-secondary btn-sm" @click="setCurrentBook">
             <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
           </button>
+          <button v-if="userBook && !userBook.owned" class="btn btn-secondary btn-sm" @click="setOwned(true)">
+            <AppIcon name="books" :size="14" /> Tenho este livro
+          </button>
+          <span v-else-if="userBook" class="chip !py-0 text-[0.62rem]">Na estante</span>
         </div>
       </div>
     </div>

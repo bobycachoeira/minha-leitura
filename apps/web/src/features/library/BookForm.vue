@@ -65,7 +65,7 @@ function choose(meta: CatalogBookMeta): void {
   results.value = []
 }
 
-async function addTo(status: UserBookDraft['status']): Promise<void> {
+async function addTo(status: UserBookDraft['status'], owned = false): Promise<void> {
   if (!title.value.trim()) {
     message.value = 'Informe o título do livro.'
     return
@@ -85,13 +85,14 @@ async function addTo(status: UserBookDraft['status']): Promise<void> {
         source: selected.value ? 'open_library' : 'manual',
       },
       status,
+      owned,
     )
     title.value = ''
     author.value = ''
     totalPages.value = null
     selected.value = null
     query.value = ''
-    message.value = status === 'quero_ler' ? 'Guardado nos Desejos.' : 'Adicionado à Estante.'
+    message.value = owned ? 'Adicionado à Estante.' : 'Guardado nos Desejos.'
   } finally {
     saving.value = false
   }
@@ -169,11 +170,11 @@ async function addTo(status: UserBookDraft['status']): Promise<void> {
     <p v-if="message" class="mt-3 text-sm text-ink-soft" role="status">{{ message }}</p>
 
     <div class="mt-4 flex flex-wrap gap-2">
-      <button v-busy="saving" type="button" class="btn btn-secondary" :disabled="saving" @click="addTo('quero_ler')">
+      <button v-busy="saving" type="button" class="btn btn-secondary" :disabled="saving" @click="addTo('quero_ler', false)">
         <AppIcon name="bookmark" :size="16" /> Desejos
       </button>
-      <button v-busy="saving" type="button" class="btn btn-primary" :disabled="saving" @click="addTo('lendo')">
-        <AppIcon name="books" :size="16" /> Estante
+      <button v-busy="saving" type="button" class="btn btn-primary" :disabled="saving" @click="addTo('quero_ler', true)">
+        <AppIcon name="books" :size="16" /> Tenho
       </button>
     </div>
 

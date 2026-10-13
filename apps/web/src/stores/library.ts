@@ -40,9 +40,10 @@ export const useLibraryStore = defineStore('library', () => {
   async function addBook(
     draft: Parameters<typeof upsertLocalBook>[0],
     status: UserBookDraft['status'] = 'quero_ler',
+    owned = false,
   ): Promise<LocalBook> {
     const book = await upsertLocalBook(draft)
-    await upsertLocalUserBook({ space: draft.space, owner: currentOwner(), book: book.id, status })
+    await upsertLocalUserBook({ space: draft.space, owner: currentOwner(), book: book.id, status, owned })
     await load()
     return book
   }
@@ -65,6 +66,7 @@ export const useLibraryStore = defineStore('library', () => {
         | 'review'
         | 'reviewPublic'
         | 'queueOrder'
+        | 'owned'
         | 'favorite'
         | 'finishedAt'
         | 'startedAt'
@@ -87,6 +89,7 @@ export const useLibraryStore = defineStore('library', () => {
           review: patch.review !== undefined ? patch.review : existing.review,
           reviewPublic: patch.reviewPublic ?? existing.reviewPublic,
           queueOrder: patch.queueOrder !== undefined ? patch.queueOrder : existing.queueOrder,
+          owned: patch.owned ?? existing.owned,
           favorite: patch.favorite ?? existing.favorite,
           finishedAt: patch.finishedAt !== undefined ? patch.finishedAt : existing.finishedAt,
           startedAt: patch.startedAt ?? existing.startedAt,
@@ -105,6 +108,7 @@ export const useLibraryStore = defineStore('library', () => {
         review: patch.review ?? null,
         reviewPublic: patch.reviewPublic ?? false,
         queueOrder: patch.queueOrder ?? null,
+        owned: patch.owned ?? false,
         favorite: patch.favorite ?? false,
         finishedAt: patch.finishedAt ?? null,
         startedAt: patch.startedAt ?? null,
@@ -113,10 +117,10 @@ export const useLibraryStore = defineStore('library', () => {
     await load()
   }
 
-  /** Want-to-read queue (ordered) for the current user. */
+  /** Owned books not yet started, in reading order. */
   function myQueue(): LocalUserBook[] {
     return userBooksOf(currentOwner())
-      .filter((b) => !b.deletedAt && b.status === 'quero_ler')
+      .filter((b) => !b.deletedAt && b.owned && b.status === 'quero_ler')
       .sort((a, b) => {
         const qa = a.queueOrder ?? Number.MAX_SAFE_INTEGER
         const qb = b.queueOrder ?? Number.MAX_SAFE_INTEGER

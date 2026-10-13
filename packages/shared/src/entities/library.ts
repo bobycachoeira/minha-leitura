@@ -24,6 +24,7 @@ export const userBookSchema = syncableBaseSchema.extend({
   review: z.string().max(500).nullable().optional(),
   reviewPublic: z.boolean().default(false),
   queueOrder: z.number().int().nullable().optional(),
+  owned: z.boolean().default(false),
   favorite: z.boolean().default(false),
   startedAt: isoDateSchema.nullable().optional(),
   finishedAt: isoDateSchema.nullable().optional(),

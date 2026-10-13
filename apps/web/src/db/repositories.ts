@@ -129,6 +129,7 @@ export interface UserBookDraft {
   review?: string | null
   reviewPublic?: boolean
   queueOrder?: number | null
+  owned?: boolean
   favorite?: boolean
   startedAt?: string | null
   finishedAt?: string | null
@@ -154,6 +155,7 @@ export async function upsertLocalUserBook(
     review: draft.review ?? null,
     reviewPublic: draft.reviewPublic ?? false,
     queueOrder: draft.queueOrder ?? null,
+    owned: draft.owned ?? false,
     favorite: draft.favorite ?? false,
     startedAt: draft.startedAt ?? null,
     finishedAt: draft.finishedAt ?? null,
@@ -181,6 +183,7 @@ export async function upsertLocalUserBook(
       review: record.review,
       reviewPublic: record.reviewPublic,
       queueOrder: record.queueOrder,
+      owned: record.owned,
       favorite: record.favorite,
       startedAt: record.startedAt,
       finishedAt: record.finishedAt,
