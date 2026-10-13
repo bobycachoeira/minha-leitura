@@ -127,6 +127,7 @@ function h_reading_post_api_user_books(c) {
   if (body.reviewPublic !== undefined) record.set('review_public', !!body.reviewPublic)
   if (body.queueOrder !== undefined) record.set('queue_order', body.queueOrder)
   if (body.owned !== undefined) record.set('owned', !!body.owned)
+  if (body.format !== undefined) record.set('format', body.format || '')
   if (body.startedAt) record.set('started_at', body.startedAt)
   if (body.finishedAt) record.set('finished_at', body.finishedAt)
   record.set('sync_id', body.syncId || uid())
@@ -171,7 +172,7 @@ function h_reading_patch_api_user_books_id(c) {
   if (body.reviewPublic !== undefined) record.set('review_public', !!body.reviewPublic)
   if (body.queueOrder !== undefined) record.set('queue_order', body.queueOrder)
   if (body.owned !== undefined) record.set('owned', !!body.owned)
-  if (body.favorite !== undefined) record.set('favorite', body.favorite)
+  if (body.format !== undefined) record.set('format', body.format || '')
   $app.save(record)
   // Book-goal progress depends on status/finished_at (FR-036); recalc goals.
   if (body.status !== undefined) engine.recalculateGoals($app, spaceId, ctx.userId)

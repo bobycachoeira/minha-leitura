@@ -11,6 +11,7 @@ import BookCover from './BookCover.vue'
 import BookForm from './BookForm.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
+import FormatPrompt from '../../components/FormatPrompt.vue'
 
 type View = 'estante' | 'desejos' | 'catalogo'
 
@@ -79,9 +80,21 @@ async function moveToShelf(bookId: string): Promise<void> {
   await library.updateUserBook(bookId, { status: 'lendo' })
 }
 
-/** Marks a wishlist book as owned (moves it to the shelf, still "to read"). */
-async function markOwned(bookId: string): Promise<void> {
-  await library.updateUserBook(bookId, { owned: true })
+/** Marks a wishlist book as owned (moves it to the shelf) after choosing the format. */
+const formatOpen = ref(false)
+const pendingOwn = ref<{ id: string; title: string } | null>(null)
+
+function askOwned(bookId: string, title: string): void {
+  pendingOwn.value = { id: bookId, title }
+  formatOpen.value = true
+}
+
+async function confirmFormat(format: 'fisico' | 'ereader'): Promise<void> {
+  const target = pendingOwn.value
+  formatOpen.value = false
+  if (!target) return
+  await library.updateUserBook(target.id, { owned: true, format })
+  pendingOwn.value = null
 }
 
 async function addToCatalog(bookId: string): Promise<void> {
@@ -184,6 +197,13 @@ watch(
         <div class="min-h-[2.6rem]">
           <p class="line-clamp-2-safe text-sm font-medium leading-snug text-ink">{{ entry.book.title }}</p>
           <p class="truncate text-xs text-ink-mute">{{ entry.book.authors.join(', ') || '—' }}</p>
+          <span
+            v-if="entry.userBook?.format"
+            class="chip !py-0 text-[0.58rem]"
+            :class="entry.userBook.format === 'ereader' ? '!text-sky-700' : ''"
+          >
+            {{ entry.userBook.format === 'fisico' ? 'Físico' : 'E-reader' }}
+          </span>
           <p
             v-if="
               view === 'estante' &&
@@ -233,11 +253,13 @@ watch(
           </div>
         </template>
         <template v-else-if="view === 'desejos' && viewer === 'me'">
-          <button class="btn btn-secondary btn-sm mt-auto w-full" @click="markOwned(entry.book.id)">
+          <button class="btn btn-secondary btn-sm mt-auto w-full" @click="askOwned(entry.book.id, entry.book.title)">
             <AppIcon name="check" :size="15" /> Adquiri
           </button>
         </template>
       </li>
     </ul>
+
+    <FormatPrompt :open="formatOpen" :title="pendingOwn?.title" @choose="confirmFormat" @close="formatOpen = false" />
   </section>
 </template>

@@ -67,6 +67,7 @@ export const useLibraryStore = defineStore('library', () => {
         | 'reviewPublic'
         | 'queueOrder'
         | 'owned'
+        | 'format'
         | 'favorite'
         | 'finishedAt'
         | 'startedAt'
@@ -90,6 +91,7 @@ export const useLibraryStore = defineStore('library', () => {
           reviewPublic: patch.reviewPublic ?? existing.reviewPublic,
           queueOrder: patch.queueOrder !== undefined ? patch.queueOrder : existing.queueOrder,
           owned: patch.owned ?? existing.owned,
+          format: patch.format !== undefined ? patch.format : existing.format,
           favorite: patch.favorite ?? existing.favorite,
           finishedAt: patch.finishedAt !== undefined ? patch.finishedAt : existing.finishedAt,
           startedAt: patch.startedAt ?? existing.startedAt,
@@ -109,6 +111,7 @@ export const useLibraryStore = defineStore('library', () => {
         reviewPublic: patch.reviewPublic ?? false,
         queueOrder: patch.queueOrder ?? null,
         owned: patch.owned ?? false,
+        format: patch.format ?? null,
         favorite: patch.favorite ?? false,
         finishedAt: patch.finishedAt ?? null,
         startedAt: patch.startedAt ?? null,

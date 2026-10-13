@@ -18,6 +18,7 @@ import BookRating from './BookRating.vue'
 import PublishPrompt from '../../components/PublishPrompt.vue'
 import FinishedPrompt from '../../components/FinishedPrompt.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
+import FormatPrompt from '../../components/FormatPrompt.vue'
 import AppIcon from '../../components/AppIcon.vue'
 
 interface LogEntry {
@@ -125,9 +126,18 @@ async function setCurrentBook(): Promise<void> {
   }
 }
 
-async function setOwned(value: boolean): Promise<void> {
+// ---- format (físico / e-reader) ----
+const formatOpen = ref(false)
+
+async function setFormat(format: 'fisico' | 'ereader'): Promise<void> {
   if (!book.value) return
-  await library.updateUserBook(book.value.id, { owned: value })
+  await library.updateUserBook(book.value.id, { format })
+}
+
+async function setOwnedWithFormat(format: 'fisico' | 'ereader'): Promise<void> {
+  formatOpen.value = false
+  if (!book.value) return
+  await library.updateUserBook(book.value.id, { owned: true, format })
 }
 
 const isNextInQueue = computed(() => library.myQueue()[0]?.book === bookId.value)
@@ -434,13 +444,30 @@ watch(
           <button v-else class="btn btn-secondary btn-sm" @click="setCurrentBook">
             <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
           </button>
-          <button v-if="userBook && !userBook.owned" class="btn btn-secondary btn-sm" @click="setOwned(true)">
+          <button v-if="userBook && !userBook.owned" class="btn btn-secondary btn-sm" @click="formatOpen = true">
             <AppIcon name="books" :size="14" /> Tenho este livro
           </button>
           <span v-else-if="userBook" class="chip !py-0 text-[0.62rem]">Na estante</span>
+          <template v-if="userBook?.owned">
+            <span class="eyebrow !text-[0.6rem]">Formato</span>
+            <button
+              class="chip !py-0 text-[0.62rem]"
+              :class="{ 'chip-active': userBook.format === 'fisico' }"
+              @click="setFormat('fisico')"
+            >
+              Físico
+            </button>
+            <button
+              class="chip !py-0 text-[0.62rem]"
+              :class="{ 'chip-active': userBook.format === 'ereader' }"
+              @click="setFormat('ereader')"
+            >
+              E-reader
+            </button>
+          </template>
           <span v-if="isNextInQueue" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Próxima leitura</span>
           <button
-            v-else-if="userBook && userBook.status !== 'lendo' && userBook.status !== 'lido'"
+            v-else-if="userBook && userBook.owned && userBook.status !== 'lendo' && userBook.status !== 'lido'"
             class="btn btn-secondary btn-sm"
             @click="markAsNext"
           >
@@ -595,6 +622,13 @@ watch(
     :title="book?.title"
     @close="finishOpen = false"
     @confirm="confirmFinished"
+  />
+
+  <FormatPrompt
+    :open="formatOpen"
+    :title="book?.title"
+    @choose="setOwnedWithFormat"
+    @close="formatOpen = false"
   />
 
   <ConfirmDialog

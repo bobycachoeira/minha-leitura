@@ -45,6 +45,7 @@ function toLocalUserBook(record: ServerRecord) {
     reviewPublic: Boolean(record.review_public),
     queueOrder: (record.queue_order as number) ?? null,
     owned: Boolean(record.owned),
+    format: (record.format as 'fisico' | 'ereader' | null) || null,
     favorite: Boolean(record.favorite),
     startedAt: (record.started_at as string) ?? null,
     finishedAt: (record.finished_at as string) ?? null,

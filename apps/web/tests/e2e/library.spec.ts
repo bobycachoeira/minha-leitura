@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 import { addBook, openHome } from './flows'
 
 test.describe('Estante & Desejos', () => {
-  test('desejo vira estante no "Adquiri"', async ({ page, loginAs }) => {
+  test('desejo vira estante no "Adquiri" (com formato)', async ({ page, loginAs }) => {
     await loginAs('marido')
     const title = `Desejo E2E ${Date.now()}`
     await addBook(page, title, false)
@@ -11,9 +11,13 @@ test.describe('Estante & Desejos', () => {
     const tile = page.locator('li', { hasText: title })
     await expect(tile).toBeVisible()
     await tile.getByRole('button', { name: 'Adquiri' }).click()
+    // escolhe o formato ao adquirir
+    await page.getByRole('button', { name: 'Físico' }).click()
 
     await page.getByRole('button', { name: /Estante ·/ }).click()
-    await expect(page.locator('li', { hasText: title })).toBeVisible()
+    const owned = page.locator('li', { hasText: title })
+    await expect(owned).toBeVisible()
+    await expect(owned.getByText('Físico')).toBeVisible()
   })
 
   test('marido vê a resenha pública da parceira no livro', async ({ page, loginAs, backend }) => {

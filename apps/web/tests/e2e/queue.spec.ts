@@ -7,6 +7,7 @@ test.describe('Próxima leitura (fila)', () => {
     await openHome(page)
     await page.goto(`/library/${backend.ids.sapiens}`)
     await page.getByRole('button', { name: 'Tenho este livro' }).click()
+    await page.getByRole('button', { name: 'E-reader' }).click()
     await expect(page.getByText('Na estante')).toBeVisible()
     const markButton = page.getByRole('button', { name: 'Marcar como próxima leitura' })
     if ((await markButton.count()) > 0) await markButton.click()
