@@ -143,6 +143,17 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  /** Pins a book as the next reading (front of the owned "to read" queue). */
+  async function markAsNext(bookId: string): Promise<void> {
+    const entry = userBooksOf(currentOwner()).find((b) => b.book === bookId && !b.deletedAt)
+    if (!entry) return
+    const rest = myQueue().filter((b) => b.book !== bookId)
+    const ordered = [entry, ...rest]
+    for (let i = 0; i < ordered.length; i += 1) {
+      await updateUserBook(ordered[i]!.book, { queueOrder: i })
+    }
+  }
+
   function currentOwner(): string {
     return session.user?.id ?? ''
   }
@@ -155,6 +166,7 @@ export const useLibraryStore = defineStore('library', () => {
     userBooksOf,
     myQueue,
     moveInQueue,
+    markAsNext,
     ownerId,
     loading,
     load,

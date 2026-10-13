@@ -128,6 +128,15 @@ async function setOwned(value: boolean): Promise<void> {
   await library.updateUserBook(book.value.id, { owned: value })
 }
 
+const isNextInQueue = computed(() => library.myQueue()[0]?.book === bookId.value)
+
+async function markAsNext(): Promise<void> {
+  if (!book.value || !userBook.value) return
+  if (!userBook.value.owned) await library.updateUserBook(book.value.id, { owned: true })
+  if (userBook.value.status !== 'quero_ler') await library.updateUserBook(book.value.id, { status: 'quero_ler' })
+  await library.markAsNext(book.value.id)
+}
+
 const logs = ref<LogEntry[]>([])
 const pages = ref<number | null>(null)
 const date = ref(new Date().toISOString().slice(0, 10))
@@ -420,6 +429,14 @@ onMounted(async () => {
             <AppIcon name="books" :size="14" /> Tenho este livro
           </button>
           <span v-else-if="userBook" class="chip !py-0 text-[0.62rem]">Na estante</span>
+          <span v-if="isNextInQueue" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Próxima leitura</span>
+          <button
+            v-else-if="userBook && userBook.status !== 'lendo' && userBook.status !== 'lido'"
+            class="btn btn-secondary btn-sm"
+            @click="markAsNext"
+          >
+            <AppIcon name="books" :size="14" /> Marcar como próxima leitura
+          </button>
         </div>
       </div>
     </div>
