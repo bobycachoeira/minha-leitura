@@ -437,48 +437,64 @@ watch(
           </p>
         </div>
 
-        <div class="mt-1 flex flex-wrap items-center gap-2">
-          <button v-if="!editing" class="btn btn-secondary btn-sm" @click="openEdit">
-            <AppIcon name="edit" :size="14" /> Editar
-          </button>
-          <span v-if="isCurrentBook" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Leitura atual</span>
-          <button v-else-if="userBook?.owned" class="btn btn-secondary btn-sm" @click="setCurrentBook">
-            <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
-          </button>
-          <button v-if="userBook && !userBook.owned" class="btn btn-secondary btn-sm" @click="formatOpen = true">
-            <AppIcon name="books" :size="14" /> Tenho este livro
-          </button>
-          <span v-else-if="userBook" class="chip !py-0 text-[0.62rem]">Na estante</span>
-          <template v-if="userBook?.owned">
-            <span class="eyebrow !text-[0.6rem]">Formato</span>
-            <button
-              class="chip !py-0 text-[0.62rem]"
-              :class="{ 'chip-active': userBook.format === 'fisico' }"
-              @click="setFormat('fisico')"
-            >
-              Físico
-            </button>
-            <button
-              class="chip !py-0 text-[0.62rem]"
-              :class="{ 'chip-active': userBook.format === 'ereader' }"
-              @click="setFormat('ereader')"
-            >
-              E-reader
-            </button>
-          </template>
-          <span v-if="isNextInQueue" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Próxima leitura</span>
-          <button
-            v-else-if="userBook && userBook.owned && userBook.status !== 'lendo' && userBook.status !== 'lido'"
-            class="btn btn-secondary btn-sm"
-            @click="markAsNext"
-          >
-            <AppIcon name="books" :size="14" /> Marcar como próxima leitura
+        <div v-if="!editing" class="mt-1">
+          <button class="btn btn-ghost btn-sm !px-2 text-ink-mute" @click="openEdit">
+            <AppIcon name="edit" :size="14" /> Editar livro
           </button>
         </div>
       </div>
     </div>
 
     <p v-if="!book.coverUrl" class="chip !border-saffron/40 !text-saffron-600">Sem capa — use Editar → Buscar capa</p>
+
+    <!-- Tenho o livro: formato + ações de leitura -->
+    <div v-if="userBook?.owned" class="card space-y-3 p-4 sm:p-5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="eyebrow flex items-center gap-1.5"><AppIcon name="books" :size="14" /> Na estante</p>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[0.62rem] text-ink-mute">Formato</span>
+          <button
+            class="chip !py-0.5 text-[0.65rem]"
+            :class="{ '!text-saffron-600 !border-saffron/50': userBook.format === 'fisico' }"
+            @click="setFormat('fisico')"
+          >
+            Físico
+          </button>
+          <button
+            class="chip !py-0.5 text-[0.65rem]"
+            :class="{ '!text-sky-600 !border-sky/50': userBook.format === 'ereader' }"
+            @click="setFormat('ereader')"
+          >
+            E-reader
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span v-if="isCurrentBook" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Leitura atual</span>
+        <button v-else class="btn btn-secondary btn-sm" @click="setCurrentBook">
+          <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
+        </button>
+        <span v-if="isNextInQueue" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Próxima leitura</span>
+        <button
+          v-else-if="userBook.status !== 'lendo' && userBook.status !== 'lido'"
+          class="btn btn-secondary btn-sm"
+          @click="markAsNext"
+        >
+          <AppIcon name="books" :size="14" /> Marcar como próxima leitura
+        </button>
+      </div>
+    </div>
+
+    <!-- Ainda é desejo: falta marcar que tenho -->
+    <div v-else-if="userBook" class="card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+      <p class="text-sm text-ink-soft">
+        Este livro está nos <strong class="text-ink">Desejos</strong>. Marque que você tem para registrar leituras.
+      </p>
+      <button class="btn btn-primary btn-sm" @click="formatOpen = true">
+        <AppIcon name="books" :size="14" /> Tenho este livro
+      </button>
+    </div>
 
     <div class="card space-y-3 p-4 sm:p-5">
       <p class="eyebrow">Minha avaliação</p>
@@ -541,6 +557,7 @@ watch(
       <p v-if="message" class="text-sm text-ink-soft" role="status">{{ message }}</p>
     </form>
 
+    <template v-if="userBook?.owned">
     <form class="card space-y-4 p-4 sm:p-5" @submit.prevent="register">
       <p class="eyebrow">Registrar leitura</p>
       <div class="grid gap-3 sm:grid-cols-3">
@@ -607,6 +624,7 @@ watch(
         </li>
       </ul>
     </div>
+    </template>
   </section>
 
   <div v-else class="card p-8 text-center text-sm text-ink-soft">Livro não encontrado no acervo local.</div>
