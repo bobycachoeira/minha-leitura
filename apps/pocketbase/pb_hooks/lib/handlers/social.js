@@ -45,7 +45,7 @@ function notify(recipientId, actorId, kind, opts) {
 function notificationsList(c) {
   var userId = auth.requireAuth(c)
   if (!userId) return
-  var rows = $app.findRecordsByFilter('notifications', 'user = {:u}', '-created', 50, 0, { u: userId })
+  var rows = $app.findRecordsByFilter('notifications', 'user = {:u} && kind != "test"', '-created', 50, 0, { u: userId })
   var out = []
   var unread = 0
   for (var i = 0; i < rows.length; i++) {

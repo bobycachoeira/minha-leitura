@@ -86,7 +86,24 @@ function h_notifications_put_api_notification_preferences(c) {
   return http.ok(c, exportPrefs(prefs))
 }
 
+/** Queues a test push for the current user (delivered by the notifier). */
+function h_notifications_post_api_notifications_test(c) {
+  var spaceId = http.queryParam(c, 'space')
+  var ctx = auth.requireSpace($app, c, spaceId)
+  if (!ctx) return
+  var collection = $app.findCollectionByNameOrId('notifications')
+  var record = new Record(collection)
+  record.set('user', ctx.userId)
+  record.set('actor', ctx.userId)
+  record.set('kind', 'test')
+  record.set('body', 'Notificação de teste')
+  record.set('is_read', true)
+  $app.save(record)
+  return http.ok(c, { queued: true })
+}
+
 module.exports = {
   h_notifications_get_api_notification_preferences: h_notifications_get_api_notification_preferences,
   h_notifications_put_api_notification_preferences: h_notifications_put_api_notification_preferences,
+  h_notifications_post_api_notifications_test: h_notifications_post_api_notifications_test,
 }

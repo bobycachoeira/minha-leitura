@@ -21,6 +21,8 @@ const code = ref('')
 const recoveryCodes = ref<string[]>([])
 const devices = ref<Device[]>([])
 const busy = ref(false)
+const regenOpen = ref(false)
+const regenCode = ref('')
 
 async function load(): Promise<void> {
   loading.value = true
@@ -64,6 +66,24 @@ async function confirm(): Promise<void> {
   }
 }
 
+/** Regenerates a fresh set of recovery codes (requires a valid TOTP code). */
+async function regenerate(): Promise<void> {
+  if (regenCode.value.trim().length < 6) return
+  busy.value = true
+  try {
+    const result = await confirm2fa(regenCode.value.trim())
+    recoveryCodes.value = result.recoveryCodes
+    regenOpen.value = false
+    regenCode.value = ''
+    step.value = 'done'
+    toasts.push('Novos códigos gerados. Guarde-os!', { kind: 'success' })
+  } catch {
+    toasts.push('Código inválido.', { kind: 'error' })
+  } finally {
+    busy.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -88,6 +108,27 @@ onMounted(load)
         </button>
       </div>
 
+      <template v-if="enabled && step === 'idle'">
+        <div class="space-y-2 border-t border-line/60 pt-3">
+          <div v-if="!regenOpen">
+            <button class="btn btn-secondary btn-sm" @click="regenOpen = true">
+              <AppIcon name="sync" :size="15" /> Gerar novos códigos de recuperação
+            </button>
+            <p class="mt-1 text-xs text-ink-mute">Gera 10 códigos novos (os antigos param de funcionar). Precisa do código do autenticador.</p>
+          </div>
+          <template v-else>
+            <label class="block">
+              <span class="label">Código do autenticador</span>
+              <input v-model="regenCode" inputmode="numeric" maxlength="6" placeholder="••••••" class="input mt-1.5 text-center font-mono tracking-[0.4em]" />
+            </label>
+            <div class="flex justify-end gap-2">
+              <button class="btn btn-secondary btn-sm" @click="regenOpen = false; regenCode = ''">Cancelar</button>
+              <button v-busy="busy" class="btn btn-primary btn-sm" :disabled="busy" @click="regenerate">Gerar códigos</button>
+            </div>
+          </template>
+        </div>
+      </template>
+
       <template v-if="step === 'scan'">
         <p class="text-sm text-ink-soft">
           Abra seu app autenticador (Google Authenticator, Authy…) e escaneie o código — ou digite o segredo manualmente.
@@ -108,6 +149,9 @@ onMounted(load)
         <p class="text-sm font-semibold text-sage">Guarde seus códigos de recuperação (use se perder o app):</p>
         <div class="grid grid-cols-2 gap-2">
           <code v-for="rc in recoveryCodes" :key="rc" class="rounded-lg bg-paper-sunken px-3 py-1.5 text-center text-sm">{{ rc }}</code>
+        </div>
+        <div class="flex justify-end">
+          <button class="btn btn-secondary btn-sm" @click="step = 'idle'">Já guardei</button>
         </div>
       </template>
     </div>

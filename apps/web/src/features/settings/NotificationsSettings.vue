@@ -21,6 +21,7 @@ const { supported, subscribe, unsubscribe, getSubscription, permission } = usePu
 
 const subscribed = ref(false)
 const busy = ref(false)
+const busyTest = ref(false)
 const status = ref<string | null>(null)
 const prefs = ref<Prefs>({
   likes: true,
@@ -103,6 +104,8 @@ async function enablePush(): Promise<void> {
     }
     subscribed.value = true
     status.value = 'Notificações ativadas.'
+  } catch (error) {
+    status.value = `Falha ao ativar: ${error instanceof Error ? error.message : 'erro desconhecido'}`
   } finally {
     busy.value = false
   }
@@ -117,6 +120,21 @@ async function disablePush(): Promise<void> {
     status.value = 'Notificações desativadas.'
   } finally {
     busy.value = false
+  }
+}
+
+/** Asks the backend to queue a test push (delivered by the notifier). */
+async function sendTest(): Promise<void> {
+  if (!session.spaceId) return
+  busyTest.value = true
+  status.value = null
+  try {
+    await apiFetch('/api/notifications/test', { method: 'POST', query: { space: session.spaceId } })
+    status.value = 'Teste a caminho — deve chegar em instantes.'
+  } catch {
+    status.value = 'Não foi possível enviar o teste.'
+  } finally {
+    busyTest.value = false
   }
 }
 
@@ -145,15 +163,24 @@ onMounted(async () => {
       >
         Ativar
       </button>
-      <button
-        v-else
-        v-busy="busy"
-        class="btn btn-ghost btn-sm shrink-0 text-ink-mute"
-        :disabled="busy"
-        @click="disablePush"
-      >
-        Desativar
-      </button>
+      <div v-else class="flex shrink-0 items-center gap-2">
+        <button
+          v-busy="busyTest"
+          class="btn btn-secondary btn-sm"
+          :disabled="busyTest"
+          @click="sendTest"
+        >
+          Enviar teste
+        </button>
+        <button
+          v-busy="busy"
+          class="btn btn-ghost btn-sm text-ink-mute"
+          :disabled="busy"
+          @click="disablePush"
+        >
+          Desativar
+        </button>
+      </div>
     </div>
 
     <div class="card divide-y divide-line/60">

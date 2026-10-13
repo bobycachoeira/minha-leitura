@@ -91,7 +91,7 @@ function h_feed_get_api_feed(c) {
   }
 
   // 3) Recent activity about you (likes/comments/follows) as feed items.
-  var notifs = $app.findRecordsByFilter('notifications', 'user = {:u}', '-created', 15, 0, { u: ctx.userId })
+  var notifs = $app.findRecordsByFilter('notifications', 'user = {:u} && kind != "test"', '-created', 15, 0, { u: ctx.userId })
   for (var k = 0; k < notifs.length; k++) {
     var n = notifs[k]
     var actorId = n.getString('actor')

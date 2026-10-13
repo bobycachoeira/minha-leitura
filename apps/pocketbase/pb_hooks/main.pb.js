@@ -72,6 +72,7 @@ routerAdd("GET", "/api/sync/pull", (c) => require(`${__hooks}/lib/handlers/sync.
 
 routerAdd("GET", "/api/notification-preferences", (c) => require(`${__hooks}/lib/handlers/notifications.js`).h_notifications_get_api_notification_preferences(c));
 routerAdd("PUT", "/api/notification-preferences", (c) => require(`${__hooks}/lib/handlers/notifications.js`).h_notifications_put_api_notification_preferences(c));
+routerAdd("POST", "/api/notifications/test", (c) => require(`${__hooks}/lib/handlers/notifications.js`).h_notifications_post_api_notifications_test(c));
 
 // Social (opt-in): follow readers and view their public posts.
 routerAdd("GET", "/api/people", (c) => require(`${__hooks}/lib/handlers/social.js`).people(c));

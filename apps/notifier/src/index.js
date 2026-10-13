@@ -84,6 +84,7 @@ function payloadFor(kind, actor, body) {
   if (kind === 'follow') return { title, body: `${actor} começou a te seguir`, url: '/' }
   if (kind === 'post') return { title, body: `${actor} publicou algo novo`, url: '/' }
   if (kind === 'period') return { title, body: body || 'Seu período de meta fechou', url: '/goals' }
+  if (kind === 'test') return { title, body: 'Tudo pronto! Você receberá as notificações.', url: '/' }
   return { title, body: `${actor} interagiu com você`, url: '/' }
 }
 
