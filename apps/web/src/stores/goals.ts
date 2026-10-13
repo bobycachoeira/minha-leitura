@@ -45,6 +45,12 @@ export interface GoalPeriodSnapshot {
   status: PeriodStatus
 }
 
+export interface MilestoneItem {
+  key: string
+  unlockedAt: string
+  payload: { label?: string; kind?: string; threshold?: number }
+}
+
 interface GoalRecord {
   id: string
   metric: GoalMetric
@@ -168,6 +174,32 @@ export const useGoalsStore = defineStore('goals', () => {
   }
 
   const periodsByGoal = ref<Record<string, GoalPeriodSnapshot[]>>({})
+
+  const milestones = ref<MilestoneItem[]>([])
+  const streakStatus = ref<{ canFreeze: boolean; brokenDate: string }>({ canFreeze: false, brokenDate: '' })
+
+  async function loadMilestones(): Promise<void> {
+    if (!session.spaceId) return
+    milestones.value = await apiFetch<MilestoneItem[]>('/api/milestones', { query: { space: session.spaceId } })
+  }
+
+  async function loadStreakStatus(): Promise<void> {
+    if (!session.spaceId) return
+    streakStatus.value = await apiFetch<{ canFreeze: boolean; brokenDate: string }>('/api/streaks/status', {
+      query: { space: session.spaceId },
+    })
+  }
+
+  async function useFreeze(): Promise<void> {
+    if (!session.spaceId || !streakStatus.value.brokenDate) return
+    await apiFetch('/api/streaks/freeze', {
+      method: 'POST',
+      query: { space: session.spaceId },
+      body: { date: streakStatus.value.brokenDate },
+    })
+    await loadStreakStatus()
+    await load()
+  }
   async function loadPeriods(goalId: string): Promise<void> {
     const records = await apiFetch<
       Array<{ id: string; start_date: string; end_date: string; target: number; progress: number; status: PeriodStatus }>
@@ -189,7 +221,12 @@ export const useGoalsStore = defineStore('goals', () => {
     activeGoals,
     progressByGoal,
     periodsByGoal,
+    milestones,
+    streakStatus,
     load,
+    loadMilestones,
+    loadStreakStatus,
+    useFreeze,
     computeAll,
     create,
     update,

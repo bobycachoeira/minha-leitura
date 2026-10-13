@@ -57,6 +57,9 @@ routerAdd("GET", "/api/goals/{id}/periods", (c) => require(`${__hooks}/lib/handl
 routerAdd("GET", "/api/goals/{id}/periods/current", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_get_api_goals_id_periods_current(c));
 routerAdd("POST", "/api/goal-periods/{id}/reopen", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_post_api_goal_periods_id_reopen(c));
 routerAdd("GET", "/api/achievements", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_get_api_achievements(c));
+routerAdd("GET", "/api/streaks/status", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_get_api_streaks_status(c));
+routerAdd("POST", "/api/streaks/freeze", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_post_api_streaks_freeze(c));
+routerAdd("GET", "/api/milestones", (c) => require(`${__hooks}/lib/handlers/goals.js`).h_goals_get_api_milestones(c));
 
 routerAdd("GET", "/api/feed", (c) => require(`${__hooks}/lib/handlers/feed.js`).h_feed_get_api_feed(c));
 routerAdd("POST", "/api/posts", (c) => require(`${__hooks}/lib/handlers/feed.js`).h_feed_post_api_posts(c));

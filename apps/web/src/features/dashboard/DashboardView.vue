@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { apiFetch } from '../../api/client.js'
+import { formatDayMonth } from '../../lib/format.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useGoalsStore } from '../../stores/goals.js'
 import { useSessionStore } from '../../stores/session.js'
@@ -21,6 +22,7 @@ const session = useSessionStore()
 const dashboard = ref<DashboardData>({ streak: 0, pagesByDay: [] })
 const showGoalForm = ref(false)
 const chartDays = ref(14)
+const recovering = ref(false)
 
 async function loadDashboard(): Promise<void> {
   if (!session.spaceId) return
@@ -37,9 +39,20 @@ async function onCreated(): Promise<void> {
   await loadDashboard()
 }
 
+async function recoverStreak(): Promise<void> {
+  recovering.value = true
+  try {
+    await goals.useFreeze()
+    await loadDashboard()
+  } finally {
+    recovering.value = false
+  }
+}
+
 onMounted(async () => {
   await library.load()
   await goals.load()
+  await goals.loadStreakStatus()
   await loadDashboard()
 })
 </script>
@@ -63,6 +76,23 @@ onMounted(async () => {
         <span class="stat-num text-5xl text-oxblood">{{ dashboard.streak }}</span>
         <span class="text-sm text-ink-soft">período(s) batido(s) em sequência</span>
       </div>
+    </div>
+
+    <div v-if="goals.streakStatus.brokenDate" class="card p-4 sm:p-5">
+      <p class="eyebrow flex items-center gap-1.5"><AppIcon name="target" :size="14" /> Sequência</p>
+      <p class="mt-1 text-sm text-ink-soft">
+        Sua sequência quebrou em <strong class="text-ink">{{ formatDayMonth(goals.streakStatus.brokenDate) }}</strong>.
+      </p>
+      <button
+        v-if="goals.streakStatus.canFreeze"
+        v-busy="recovering"
+        class="btn btn-secondary btn-sm mt-2"
+        :disabled="recovering"
+        @click="recoverStreak"
+      >
+        <AppIcon name="check" :size="15" /> Recuperar sequência (congelar 1 dia)
+      </button>
+      <p v-else class="mt-1 text-xs text-ink-mute">Você já usou um congelamento nos últimos 7 dias.</p>
     </div>
 
     <Transition name="page">

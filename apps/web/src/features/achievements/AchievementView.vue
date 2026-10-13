@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { createPost } from '../../api/feed-api.js'
 import { useSessionStore } from '../../stores/session.js'
 import { useAchievementsStore, type AchievementRecord } from '../../stores/achievements.js'
+import { useGoalsStore } from '../../stores/goals.js'
+import { MILESTONES } from '@ml/shared'
 import { useAchievementCard } from './useAchievementCard.js'
 import { shareImage, downloadImage } from '../../lib/share.js'
 import { useCardTheme } from '../../composables/useCardTheme.js'
@@ -14,10 +16,14 @@ import AchievementCard from '../../components/AchievementCard.vue'
 
 const session = useSessionStore()
 const achievements = useAchievementsStore()
+const goals = useGoalsStore()
 const { render, toBlob } = useAchievementCard()
 const { themeId, themes, setTheme } = useCardTheme()
 const route = useRoute()
 const highlightId = ref<string | null>(null)
+
+const milestones = MILESTONES
+const unlockedKeys = computed(() => new Set(goals.milestones.map((m) => m.key)))
 
 const promptOpen = ref(false)
 const promptText = ref('')
@@ -94,6 +100,7 @@ function download(a: AchievementRecord): void {
 
 onMounted(async () => {
   await achievements.load()
+  void goals.loadMilestones()
   const highlight = route.query.highlight
   if (typeof highlight === 'string') {
     highlightId.value = highlight
@@ -131,6 +138,22 @@ onMounted(async () => {
         <AppIcon name="check" :size="15" /> Marcar como visto
       </button>
     </header>
+
+    <div class="card p-4 sm:p-5">
+      <p class="eyebrow mb-3 flex items-center gap-1.5"><AppIcon name="award" :size="14" /> Marcos</p>
+      <ul class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+        <li
+          v-for="m in milestones"
+          :key="m.key"
+          class="flex flex-col items-center gap-1 rounded-xl border border-line/60 p-3 text-center"
+          :class="unlockedKeys.has(m.key) ? 'bg-oxblood/5' : 'opacity-45'"
+        >
+          <AppIcon :name="m.icon" :size="22" :class="unlockedKeys.has(m.key) ? 'text-oxblood' : 'text-ink-mute'" />
+          <span class="text-[0.72rem] font-semibold leading-tight text-ink">{{ m.label }}</span>
+          <span class="text-[0.6rem] leading-tight text-ink-mute">{{ unlockedKeys.has(m.key) ? 'conquistado' : m.hint }}</span>
+        </li>
+      </ul>
+    </div>
 
     <div v-if="achievements.items.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
       <AppIcon name="award" :size="28" class="text-ink-mute" />

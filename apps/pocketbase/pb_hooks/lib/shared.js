@@ -31,6 +31,7 @@ __export(hooks_entry_exports, {
   DEFAULT_TIMEZONE: () => DEFAULT_TIMEZONE,
   GOAL_METRICS: () => GOAL_METRICS,
   GOAL_PERIODS: () => GOAL_PERIODS,
+  MILESTONES: () => MILESTONES,
   PERIOD_STATUSES: () => PERIOD_STATUSES,
   POST_KINDS: () => POST_KINDS,
   REACTION_KINDS: () => REACTION_KINDS,
@@ -61,6 +62,7 @@ __export(hooks_entry_exports, {
   isWithinGrace: () => isWithinGrace,
   isWithinInclusive: () => isWithinInclusive,
   maxISO: () => maxISO,
+  milestoneByKey: () => milestoneByKey,
   minISO: () => minISO,
   parseISODate: () => parseISODate,
   recommend: () => recommend,
@@ -82,7 +84,7 @@ var ROLES = ["owner", "partner", "viewer"];
 var READ_STATUSES = ["quero_ler", "lendo", "lido", "abandonado"];
 var GOAL_METRICS = ["paginas", "livros"];
 var GOAL_PERIODS = ["dia", "semana", "mes"];
-var PERIOD_STATUSES = ["aberto", "batida", "nao_batida"];
+var PERIOD_STATUSES = ["aberto", "batida", "nao_batida", "congelado"];
 var CHALLENGE_PERIODS = ["semana", "mes"];
 var POST_KINDS = ["livro_concluido", "meta_batida", "avanco", "desafio", "manual"];
 var REACTION_KINDS = ["curtir", "aplauso", "forca"];
@@ -293,6 +295,7 @@ function computeStreak(periods) {
   let streak = 0;
   for (const period of closed) {
     if (period.status === "batida") streak += 1;
+    else if (period.status === "congelado") continue;
     else break;
   }
   return streak;
@@ -387,4 +390,21 @@ function buildAchievementPayload(input) {
     books: [...input.books ?? []].sort(),
     pages: input.pages ?? 0
   };
+}
+
+// src/domain/milestones.ts
+var MILESTONES = [
+  { key: "books_1", label: "Primeiro livro", hint: "Termine 1 livro", kind: "books", threshold: 1, icon: "books" },
+  { key: "books_5", label: "5 livros", hint: "Termine 5 livros", kind: "books", threshold: 5, icon: "books" },
+  { key: "books_10", label: "10 livros", hint: "Termine 10 livros", kind: "books", threshold: 10, icon: "books" },
+  { key: "books_25", label: "25 livros", hint: "Termine 25 livros", kind: "books", threshold: 25, icon: "books" },
+  { key: "books_50", label: "50 livros", hint: "Termine 50 livros", kind: "books", threshold: 50, icon: "books" },
+  { key: "pages_1000", label: "1.000 p\xE1ginas", hint: "Leia 1.000 p\xE1ginas", kind: "pages", threshold: 1e3, icon: "sparkles" },
+  { key: "pages_5000", label: "5.000 p\xE1ginas", hint: "Leia 5.000 p\xE1ginas", kind: "pages", threshold: 5e3, icon: "sparkles" },
+  { key: "streak_7", label: "7 seguidos", hint: "7 per\xEDodos batidos em sequ\xEAncia", kind: "streak", threshold: 7, icon: "award" },
+  { key: "streak_30", label: "30 seguidos", hint: "30 per\xEDodos batidos em sequ\xEAncia", kind: "streak", threshold: 30, icon: "award" },
+  { key: "streak_100", label: "100 seguidos", hint: "100 per\xEDodos batidos em sequ\xEAncia", kind: "streak", threshold: 100, icon: "award" }
+];
+function milestoneByKey(key) {
+  return MILESTONES.find((m) => m.key === key);
 }

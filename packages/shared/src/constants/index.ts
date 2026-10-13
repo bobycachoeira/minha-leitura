@@ -15,7 +15,7 @@ export type GoalMetric = (typeof GOAL_METRICS)[number]
 export const GOAL_PERIODS = ['dia', 'semana', 'mes'] as const
 export type GoalPeriodUnit = (typeof GOAL_PERIODS)[number]
 
-export const PERIOD_STATUSES = ['aberto', 'batida', 'nao_batida'] as const
+export const PERIOD_STATUSES = ['aberto', 'batida', 'nao_batida', 'congelado'] as const
 export type PeriodStatus = (typeof PERIOD_STATUSES)[number]
 
 export const CHALLENGE_PERIODS = ['semana', 'mes'] as const

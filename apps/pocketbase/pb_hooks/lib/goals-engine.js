@@ -154,6 +154,98 @@ function recalculateGoals(app, spaceId, userId) {
       else if (result.status === 'nao_batida') materializeAchievement(app, period, goal, 'meta_nao_batida')
     }
   }
+
+  try {
+    evaluateMilestones(app, spaceId, userId)
+  } catch (e) {
+    /* milestones are best-effort */
+  }
+}
+
+/** Unlocks future milestone badges (books/pages/best streak) for the user. */
+function evaluateMilestones(app, spaceId, userId) {
+  var defs = shared.MILESTONES || []
+  if (!defs.length) return
+
+  var existing = app.findRecordsByFilter(
+    'milestones',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '',
+    0,
+    0,
+    { space: spaceId, owner: userId },
+  )
+  var have = {}
+  for (var i = 0; i < existing.length; i++) have[existing[i].getString('key')] = true
+
+  var books = app.findRecordsByFilter(
+    'user_books',
+    'space = {:space} && owner = {:owner} && status = "lido" && deleted_at = null',
+    '',
+    0,
+    0,
+    { space: spaceId, owner: userId },
+  )
+  var logs = app.findRecordsByFilter(
+    'reading_logs',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '',
+    0,
+    0,
+    { space: spaceId, owner: userId },
+  )
+  var pages = 0
+  for (var l = 0; l < logs.length; l++) pages += logs[l].get('pages') || 0
+
+  var goals = app.findRecordsByFilter(
+    'goals',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '',
+    0,
+    0,
+    { space: spaceId, owner: userId },
+  )
+  var bestStreak = 0
+  for (var g = 0; g < goals.length; g++) {
+    var periods = app.findRecordsByFilter('goal_periods', 'goal = {:g} && deleted_at = null', '', 0, 0, { g: goals[g].id })
+    var inputs = []
+    for (var p = 0; p < periods.length; p++) {
+      inputs.push({
+        status: periods[p].getString('status'),
+        startDate: String(periods[p].get('start_date')).slice(0, 10),
+        endDate: String(periods[p].get('end_date')).slice(0, 10),
+      })
+    }
+    bestStreak = Math.max(bestStreak, shared.computeStreak(inputs))
+  }
+
+  var collection = app.findCollectionByNameOrId('milestones')
+  var notifCollection = app.findCollectionByNameOrId('notifications')
+  for (var d = 0; d < defs.length; d++) {
+    var def = defs[d]
+    if (have[def.key]) continue
+    var value = def.kind === 'books' ? books.length : def.kind === 'pages' ? pages : bestStreak
+    if (value < def.threshold) continue
+    var record = new Record(collection)
+    record.set('space', spaceId)
+    record.set('owner', userId)
+    record.set('key', def.key)
+    record.set('payload', { label: def.label, kind: def.kind, threshold: def.threshold })
+    record.set('unlocked_at', new Date().toISOString())
+    record.set('sync_id', uid())
+    app.save(record)
+    try {
+      var notice = new Record(notifCollection)
+      notice.set('user', userId)
+      notice.set('actor', userId)
+      notice.set('kind', 'milestone')
+      notice.set('body', 'Você desbloqueou: ' + def.label)
+      notice.set('is_read', false)
+      app.save(notice)
+    } catch (e) {
+      /* notification best-effort */
+    }
+  }
 }
 
 function materializeAchievement(app, period, goal, kind) {
@@ -263,5 +355,6 @@ module.exports = {
   recalculateGoals: recalculateGoals,
   materializeAchievement: materializeAchievement,
   cleanupAchievements: cleanupAchievements,
+  evaluateMilestones: evaluateMilestones,
   uid: uid,
 }

@@ -233,6 +233,132 @@ function cron_goals() {
   engine.cleanupAchievements($app)
 }
 
+// ------------------------------------------------- streak freeze & milestones
+
+function daysAgoISO(days) {
+  var d = new Date(Date.now() - days * 86400000)
+  return d.toISOString().slice(0, 10)
+}
+
+function h_goals_get_api_streaks_status(c) {
+  var spaceId = http.queryParam(c, 'space')
+  var ctx = auth.requireSpace($app, c, spaceId)
+  if (!ctx) return
+
+  var recent = $app.findRecordsByFilter(
+    'streak_freezes',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '-created',
+    1,
+    0,
+    { space: spaceId, owner: ctx.userId },
+  )
+  var canFreeze = true
+  if (recent.length > 0) {
+    canFreeze = Date.now() - new Date(recent[0].getString('created')).getTime() >= 7 * 86400000
+  }
+
+  var floor = daysAgoISO(3)
+  var goals = $app.findRecordsByFilter('goals', 'space = {:space} && owner = {:owner} && deleted_at = null', '', 0, 0, {
+    space: spaceId,
+    owner: ctx.userId,
+  })
+  var brokenDate = ''
+  for (var g = 0; g < goals.length; g++) {
+    var periods = $app.findRecordsByFilter(
+      'goal_periods',
+      'goal = {:goal} && status = "nao_batida" && deleted_at = null',
+      '-end_date',
+      5,
+      0,
+      { goal: goals[g].id },
+    )
+    for (var p = 0; p < periods.length; p++) {
+      var end = String(periods[p].get('end_date')).slice(0, 10)
+      if (end >= floor && end > brokenDate) brokenDate = end
+    }
+  }
+  return http.ok(c, { canFreeze: canFreeze, brokenDate: brokenDate })
+}
+
+function h_goals_post_api_streaks_freeze(c) {
+  var spaceId = http.queryParam(c, 'space')
+  var ctx = auth.requireRole($app, c, spaceId, ['owner', 'partner'])
+  if (!ctx) return
+  var data = body(c)
+  var date = String(data.date || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return http.fail(c, 422, 'invalid_date', 'data inválida')
+
+  var recent = $app.findRecordsByFilter(
+    'streak_freezes',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '-created',
+    1,
+    0,
+    { space: spaceId, owner: ctx.userId },
+  )
+  if (recent.length > 0 && Date.now() - new Date(recent[0].getString('created')).getTime() < 7 * 86400000) {
+    return http.fail(c, 429, 'freeze_cooldown', 'Você já usou um congelamento nos últimos 7 dias')
+  }
+
+  var collection = $app.findCollectionByNameOrId('streak_freezes')
+  var freeze = new Record(collection)
+  freeze.set('space', spaceId)
+  freeze.set('owner', ctx.userId)
+  freeze.set('date', date)
+  freeze.set('sync_id', engine.uid())
+  $app.save(freeze)
+
+  var goals = $app.findRecordsByFilter('goals', 'space = {:space} && owner = {:owner} && deleted_at = null', '', 0, 0, {
+    space: spaceId,
+    owner: ctx.userId,
+  })
+  var protectedCount = 0
+  for (var g = 0; g < goals.length; g++) {
+    var periods = $app.findRecordsByFilter('goal_periods', 'goal = {:goal} && deleted_at = null', '', 0, 0, { goal: goals[g].id })
+    for (var p = 0; p < periods.length; p++) {
+      var start = String(periods[p].get('start_date')).slice(0, 10)
+      var end = String(periods[p].get('end_date')).slice(0, 10)
+      if (date >= start && date <= end && periods[p].getString('status') === 'nao_batida') {
+        periods[p].set('status', 'congelado')
+        $app.save(periods[p])
+        protectedCount += 1
+      }
+    }
+  }
+
+  engine.recalculateGoals($app, spaceId, ctx.userId)
+  audit.writeAudit($app, {
+    space: spaceId,
+    actor: ctx.userId,
+    action: 'streak.freeze',
+    entity: 'streak_freezes',
+    entityId: freeze.id,
+  })
+  return http.ok(c, { frozen: true, date: date, periods: protectedCount })
+}
+
+function h_goals_get_api_milestones(c) {
+  var spaceId = http.queryParam(c, 'space')
+  var ctx = auth.requireSpace($app, c, spaceId)
+  if (!ctx) return
+  var records = $app.findRecordsByFilter(
+    'milestones',
+    'space = {:space} && owner = {:owner} && deleted_at = null',
+    '-unlocked_at',
+    0,
+    0,
+    { space: spaceId, owner: ctx.userId },
+  )
+  return http.ok(c, records.map(function (r) {
+    return {
+      key: r.getString('key'),
+      unlockedAt: r.getString('unlocked_at'),
+      payload: http.jsonField(r, 'payload', {}),
+    }
+  }))
+}
+
 module.exports = {
   h_goals_get_api_goals: h_goals_get_api_goals,
   h_goals_post_api_goals: h_goals_post_api_goals,
@@ -242,5 +368,8 @@ module.exports = {
   h_goals_get_api_goals_id_periods_current: h_goals_get_api_goals_id_periods_current,
   h_goals_post_api_goal_periods_id_reopen: h_goals_post_api_goal_periods_id_reopen,
   h_goals_get_api_achievements: h_goals_get_api_achievements,
+  h_goals_get_api_streaks_status: h_goals_get_api_streaks_status,
+  h_goals_post_api_streaks_freeze: h_goals_post_api_streaks_freeze,
+  h_goals_get_api_milestones: h_goals_get_api_milestones,
   cron_goals: cron_goals
 }

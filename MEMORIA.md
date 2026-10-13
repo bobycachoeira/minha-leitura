@@ -54,6 +54,12 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   Preferências no Perfil: lembrete inteligente, empurrão do casal, perto da meta
   e horário do lembrete.
 
+- **Fase 4 — Perdão de streak + Badges: ✅ concluída.** Status `congelado`
+  (streak continua), endpoints `/api/streaks/status` e `/api/streaks/freeze`
+  (1 congelamento a cada 7 dias; protege o período perdido), card de recuperação
+  nas Metas. Badges de marcos (livros/páginas/streak) avaliados no motor de metas
+  + notificação `milestone` + seção “Marcos” nas Conquistas.
+
 ## Estado atual (resumo)
 
 PWA offline-first (Vue 3 + Dexie) + PocketBase; sync idempotente por `sync_id`;

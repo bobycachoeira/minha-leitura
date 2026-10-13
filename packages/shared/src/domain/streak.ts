@@ -19,6 +19,7 @@ export function computeStreak(periods: StreakPeriodLike[]): number {
   let streak = 0
   for (const period of closed) {
     if (period.status === 'batida') streak += 1
+    else if (period.status === 'congelado') continue // protected day: keeps the sequence
     else break
   }
   return streak
