@@ -243,7 +243,7 @@ onMounted(async () => {
         <AppIcon name="bell" :size="18" class="text-ink-mute" />
         <span class="min-w-0 flex-1">
           <span class="block text-sm font-medium text-ink">Horário do lembrete</span>
-          <span class="block text-xs text-ink-mute">A que horas avisar (vazio = 20:00)</span>
+          <span class="block text-xs text-ink-mute">A que horas avisar (vazio = 23:00)</span>
         </span>
         <input
           type="time"

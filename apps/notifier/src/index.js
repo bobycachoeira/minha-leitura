@@ -160,7 +160,7 @@ async function deliverReminders(token, webpush, prefsList, loggedToday) {
   for (const prefs of prefsList) {
     if (prefs.goal_reminders === false) continue
     if ((prefs.subscriptions ?? []).length === 0) continue
-    const target = prefs.reminder_time || '20:00'
+    const target = prefs.reminder_time || '23:00'
     if (time < target) continue
     const key = `reminder:${prefs.user}`
     if (sentKeys.has(key)) continue
