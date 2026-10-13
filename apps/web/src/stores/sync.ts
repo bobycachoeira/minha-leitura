@@ -25,6 +25,7 @@ function toLocalBook(record: ServerRecord) {
     source: (record.source as 'manual') ?? 'manual',
     externalId: (record.external_id as string) || null,
     deletedAt: (record.deleted_at as string) ?? null,
+    updated: (record.updated as string) ?? undefined,
     _dirty: false,
   }
 }
@@ -47,6 +48,7 @@ function toLocalUserBook(record: ServerRecord) {
     startedAt: (record.started_at as string) ?? null,
     finishedAt: (record.finished_at as string) ?? null,
     deletedAt: (record.deleted_at as string) ?? null,
+    updated: (record.updated as string) ?? undefined,
     _dirty: false,
   }
 }
@@ -67,6 +69,7 @@ function toLocalReadingLog(record: ServerRecord) {
     quote: (record.quote as string) ?? null,
     quotePage: (record.quote_page as number) ?? null,
     deletedAt: (record.deleted_at as string) ?? null,
+    updated: (record.updated as string) ?? undefined,
     _dirty: false,
   }
 }

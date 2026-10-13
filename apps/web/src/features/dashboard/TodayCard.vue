@@ -22,17 +22,22 @@ const timer = useReadingTimerStore()
 const myId = computed(() => session.user?.id ?? '')
 const today = todayISODate(DEFAULT_TIMEZONE)
 const readToday = ref(false)
+const lastLogByBook = ref<Record<string, string>>({})
 const logging = ref(false)
 const finishOpen = ref(false)
 const sessionPages = ref<number | null>(null)
 
 const current = computed(() => {
-  const mine = library
-    .userBooksOf(myId.value)
-    .filter((b) => b.status === 'lendo' && !b.deletedAt)
-    .sort((a, b) => (String(a.updated) < String(b.updated) ? 1 : -1))
-  const userBook = mine[0]
-  if (!userBook) return null
+  const mine = library.userBooksOf(myId.value).filter((b) => b.status === 'lendo' && !b.deletedAt)
+  if (mine.length === 0) return null
+  const last = lastLogByBook.value
+  const ranked = [...mine].sort((a, b) => {
+    const la = last[a.book] ?? ''
+    const lb = last[b.book] ?? ''
+    if (la !== lb) return la < lb ? 1 : -1
+    return String(a.updated ?? '') < String(b.updated ?? '') ? 1 : -1
+  })
+  const userBook = ranked[0]!
   return { userBook, book: library.books.find((bk) => bk.id === userBook.book) ?? null }
 })
 
@@ -49,10 +54,17 @@ function mmss(seconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`
 }
 
-async function refreshReadToday(): Promise<void> {
+async function refreshLogs(): Promise<void> {
   if (!session.spaceId || !myId.value) return
   const logs = await db.readingLogs.where('space').equals(session.spaceId).toArray()
-  readToday.value = logs.some((l) => !l.deletedAt && l.owner === myId.value && l.date === today)
+  const mine = logs.filter((l) => !l.deletedAt && l.owner === myId.value)
+  readToday.value = mine.some((l) => l.date === today)
+  const map: Record<string, string> = {}
+  for (const log of mine) {
+    const previous = map[log.book]
+    if (!previous || log.date > previous) map[log.book] = log.date
+  }
+  lastLogByBook.value = map
 }
 
 async function logPages(bookId: string, pages: number, minutes?: number): Promise<void> {
@@ -70,7 +82,7 @@ async function logPages(bookId: string, pages: number, minutes?: number): Promis
   })
   await library.updateUserBook(bookId, { currentPage: endPage, status: 'lendo' })
   await goals.computeAll()
-  await refreshReadToday()
+  await refreshLogs()
 }
 
 async function quickLog(pages: number): Promise<void> {
@@ -109,7 +121,7 @@ function discardSession(): void {
 onMounted(async () => {
   if (library.books.length === 0) await library.load()
   await goals.load()
-  await refreshReadToday()
+  await refreshLogs()
 })
 </script>
 
