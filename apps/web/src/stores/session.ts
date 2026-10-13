@@ -8,6 +8,7 @@ export interface SessionUser {
   email?: string
   bio?: string
   avatar?: string
+  currentBook?: string
 }
 
 const TOKEN_KEY = 'ml.token'

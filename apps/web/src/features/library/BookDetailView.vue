@@ -6,6 +6,7 @@ import { db } from '../../db/schema.js'
 import { addLocalReadingLog, deleteLocalReadingLog, updateLocalReadingLog } from '../../db/repositories.js'
 import { normalizeCoverUrl, searchCatalogServer } from '../../api/catalog.js'
 import { createPost } from '../../api/feed-api.js'
+import { updateProfile } from '../../api/auth-api.js'
 import { useLibraryStore } from '../../stores/library.js'
 import { useGoalsStore } from '../../stores/goals.js'
 import { useMembersStore } from '../../stores/members.js'
@@ -62,6 +63,26 @@ const partnerStatusText = computed(() => {
     } as Record<string, string>
   )[status]
 })
+
+const isCurrentBook = computed(() => session.user?.currentBook === bookId.value)
+
+async function setCurrentBook(): Promise<void> {
+  if (!book.value) return
+  try {
+    const updated = await updateProfile({ currentBook: book.value.id })
+    session.setUser({
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      bio: updated.bio,
+      avatar: updated.avatar,
+      currentBook: updated.currentBook,
+    })
+    await library.updateUserBook(book.value.id, { status: 'lendo' })
+  } catch {
+    // best-effort
+  }
+}
 
 const logs = ref<LogEntry[]>([])
 const pages = ref<number | null>(null)
@@ -343,9 +364,13 @@ onMounted(async () => {
           </p>
         </div>
 
-        <div class="mt-1 flex gap-2">
+        <div class="mt-1 flex flex-wrap items-center gap-2">
           <button v-if="!editing" class="btn btn-secondary btn-sm" @click="openEdit">
             <AppIcon name="edit" :size="14" /> Editar
+          </button>
+          <span v-if="isCurrentBook" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Leitura atual</span>
+          <button v-else class="btn btn-secondary btn-sm" @click="setCurrentBook">
+            <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
           </button>
         </div>
       </div>

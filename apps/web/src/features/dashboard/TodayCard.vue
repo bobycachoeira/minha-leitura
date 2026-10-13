@@ -30,6 +30,8 @@ const sessionPages = ref<number | null>(null)
 const current = computed(() => {
   const mine = library.userBooksOf(myId.value).filter((b) => b.status === 'lendo' && !b.deletedAt)
   if (mine.length === 0) return null
+  const pinned = session.user?.currentBook
+  const pinnedBook = pinned ? mine.find((b) => b.book === pinned) : undefined
   const last = lastLogByBook.value
   const ranked = [...mine].sort((a, b) => {
     const la = last[a.book] ?? ''
@@ -37,7 +39,7 @@ const current = computed(() => {
     if (la !== lb) return la < lb ? 1 : -1
     return String(a.updated ?? '') < String(b.updated ?? '') ? 1 : -1
   })
-  const userBook = ranked[0]!
+  const userBook = pinnedBook ?? ranked[0]!
   return { userBook, book: library.books.find((bk) => bk.id === userBook.book) ?? null }
 })
 

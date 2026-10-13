@@ -172,6 +172,7 @@ function meHandler(c) {
     bio: user.getString('bio'),
     avatar: user.getString('avatar_data'),
     twofaEnabled: user.getBool('twofa_enabled'),
+    currentBook: user.getString('current_book'),
   })
 }
 
@@ -197,6 +198,9 @@ function updateMeHandler(c) {
     if (avatar.length > 400000) return http.fail(c, 413, 'avatar_too_large', 'foto muito grande')
     user.set('avatar_data', avatar)
   }
+  if (data.currentBook !== undefined) {
+    user.set('current_book', String(data.currentBook || '').slice(0, 20))
+  }
   $app.save(user)
   return http.ok(c, {
     id: user.id,
@@ -204,6 +208,7 @@ function updateMeHandler(c) {
     name: user.getString('name'),
     bio: user.getString('bio'),
     avatar: user.getString('avatar_data'),
+    currentBook: user.getString('current_book'),
   })
 }
 

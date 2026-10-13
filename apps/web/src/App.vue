@@ -5,6 +5,7 @@ import { useSyncStore } from './stores/sync.js'
 import { useSessionStore } from './stores/session.js'
 import { onStepUpRequired, onUnauthorized } from './api/client.js'
 import { listSpaces } from './api/space-api.js'
+import { fetchMe } from './api/auth-api.js'
 import { useToastsStore } from './stores/toasts.js'
 import { useAchievementsStore } from './stores/achievements.js'
 import TopBar from './components/TopBar.vue'
@@ -83,6 +84,7 @@ function scheduleSync(): void {
 onMounted(() => {
   void sync.bootstrap()
   void reconcileSpace()
+  void refreshMe()
   maybeSync()
   void checkAchievements()
   window.addEventListener('online', maybeSync)
@@ -100,11 +102,32 @@ onMounted(() => {
   })
 })
 
+/** Keeps the session user fresh (name/avatar/currentBook) across devices. */
+async function refreshMe(): Promise<void> {
+  if (!session.isAuthenticated) return
+  try {
+    const me = await fetchMe()
+    session.setUser({
+      id: me.id,
+      email: me.email,
+      name: me.name,
+      bio: me.bio,
+      avatar: me.avatar,
+      currentBook: me.currentBook,
+    })
+  } catch {
+    // transient error: keep the cached user
+  }
+}
+
 // Validate the space as soon as the user is authenticated (after login/2FA).
 watch(
   () => session.isAuthenticated,
   (authed) => {
-    if (authed) void reconcileSpace()
+    if (authed) {
+      void reconcileSpace()
+      void refreshMe()
+    }
   },
 )
 

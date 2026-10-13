@@ -7,6 +7,7 @@ export interface AuthUser {
   bio?: string
   avatar?: string
   twofaEnabled?: boolean
+  currentBook?: string
 }
 
 export interface AuthResponse {
@@ -53,6 +54,7 @@ export async function updateProfile(input: {
   name?: string
   bio?: string
   avatarData?: string
+  currentBook?: string
 }): Promise<AuthUser> {
   return apiFetch('/api/auth/me', { method: 'PATCH', body: input })
 }
