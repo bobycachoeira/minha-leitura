@@ -173,7 +173,7 @@ async function addTo(status: UserBookDraft['status'], owned = false): Promise<vo
       <button v-busy="saving" type="button" class="btn btn-secondary" :disabled="saving" @click="addTo('quero_ler', false)">
         <AppIcon name="bookmark" :size="16" /> Desejos
       </button>
-      <button v-busy="saving" type="button" class="btn btn-primary" :disabled="saving" @click="addTo('quero_ler', true)">
+      <button v-busy="saving" type="button" class="btn btn-primary" :disabled="saving" @click="addTo('a_ler', true)">
         <AppIcon name="books" :size="16" /> Tenho
       </button>
     </div>

@@ -81,7 +81,7 @@ module.exports = __toCommonJS(hooks_entry_exports);
 
 // src/constants/index.ts
 var ROLES = ["owner", "partner", "viewer"];
-var READ_STATUSES = ["quero_ler", "lendo", "lido", "abandonado"];
+var READ_STATUSES = ["quero_ler", "a_ler", "lendo", "lido", "abandonado"];
 var GOAL_METRICS = ["paginas", "livros"];
 var GOAL_PERIODS = ["dia", "semana", "mes"];
 var PERIOD_STATUSES = ["aberto", "batida", "nao_batida", "congelado"];

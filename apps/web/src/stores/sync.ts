@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { Table } from 'dexie'
 import { apiFetch } from '../api/client.js'
 import { db } from '../db/schema.js'
 import type { OutboxItem } from '../db/schema.js'
@@ -76,6 +77,20 @@ function toLocalReadingLog(record: ServerRecord) {
   }
 }
 
+/**
+ * Returns the existing local record for the same logical record (syncId), so
+ * the pull can merge into it instead of swapping ids/references under the user.
+ */
+async function findLocal<T extends { id: string; syncId: string }>(
+  table: Table<T, string>,
+  local: T,
+): Promise<T | null> {
+  const same = await table.filter((r) => r.syncId === local.syncId && r.id !== local.id).toArray()
+  if (same.length === 0) return null
+  for (const extra of same.slice(1)) await table.delete(extra.id)
+  return same[0]!
+}
+
 /** Persists a pulled change into the local mirror, including tombstones. */
 async function applyChange(change: PullChange): Promise<void> {
   const record = change.record as ServerRecord | null | undefined
@@ -89,30 +104,34 @@ async function applyChange(change: PullChange): Promise<void> {
   if (!record) return
   if (change.entity === 'books') {
     const local = toLocalBook(record)
+    const existing = await findLocal(db.books, local)
+    const merged = { ...local, id: existing?.id ?? local.id }
     const dups = await db.books
       .filter(
         (b) =>
-          b.id !== local.id &&
+          b.id !== merged.id &&
           b.space === local.space &&
           (local.externalId ? b.externalId === local.externalId : b.title === local.title),
       )
       .toArray()
     for (const d of dups) await db.books.delete(d.id)
-    await db.books.put(local)
+    await db.books.put(merged)
   } else if (change.entity === 'user_books') {
     const local = toLocalUserBook(record)
-    const dups = await db.userBooks
-      .filter((b) => b.owner === local.owner && b.book === local.book && b.id !== local.id)
-      .toArray()
+    const existing = await findLocal(db.userBooks, local)
+    // Keep the local book reference (the pulled `book` points to the server id).
+    const merged = {
+      ...local,
+      id: existing?.id ?? local.id,
+      book: existing?.book ?? local.book,
+    }
+    const dups = await db.userBooks.filter((b) => b.id !== merged.id && b.owner === local.owner && b.book === merged.book).toArray()
     for (const d of dups) await db.userBooks.delete(d.id)
-    await db.userBooks.put(local)
+    await db.userBooks.put(merged)
   } else if (change.entity === 'reading_logs') {
     const local = toLocalReadingLog(record)
-    // The local copy keeps the client id until the pull; drop it so the same
-    // logical record (same syncId) doesn't appear twice.
-    const dups = await db.readingLogs.filter((l) => l.syncId === local.syncId && l.id !== local.id).toArray()
-    for (const d of dups) await db.readingLogs.delete(d.id)
-    await db.readingLogs.put(local)
+    const existing = await findLocal(db.readingLogs, local)
+    await db.readingLogs.put({ ...local, id: existing?.id ?? local.id, book: existing?.book ?? local.book })
   }
   // Other entities are not mirrored locally in this MVP.
 }

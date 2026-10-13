@@ -6,7 +6,7 @@
 export const ROLES = ['owner', 'partner', 'viewer'] as const
 export type Role = (typeof ROLES)[number]
 
-export const READ_STATUSES = ['quero_ler', 'lendo', 'lido', 'abandonado'] as const
+export const READ_STATUSES = ['quero_ler', 'a_ler', 'lendo', 'lido', 'abandonado'] as const
 export type ReadStatus = (typeof READ_STATUSES)[number]
 
 export const GOAL_METRICS = ['paginas', 'livros'] as const

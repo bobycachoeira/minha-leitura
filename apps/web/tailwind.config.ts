@@ -26,6 +26,10 @@ export default {
         },
         sage: 'rgb(var(--sage) / <alpha-value>)',
         gold: 'rgb(var(--gold) / <alpha-value>)',
+        sky: {
+          DEFAULT: 'rgb(var(--sky) / <alpha-value>)',
+          600: 'rgb(var(--sky-600) / <alpha-value>)',
+        },
       },
       fontFamily: {
         display: ['Fraunces', 'Georgia', 'serif'],

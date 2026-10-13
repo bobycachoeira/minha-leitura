@@ -17,6 +17,7 @@ watch(
 
 const statusLabels: Record<ReadStatus, string> = {
   quero_ler: 'Desejo ler',
+  a_ler: 'Ainda vou ler',
   lendo: 'Lendo agora',
   lido: 'Já li',
   abandonado: 'Deixei de lado',

@@ -18,6 +18,7 @@ test.describe('Estante & Desejos', () => {
     const owned = page.locator('li', { hasText: title })
     await expect(owned).toBeVisible()
     await expect(owned.getByText('Físico')).toBeVisible()
+    await expect(owned.getByText('Físico')).toHaveClass(/saffron-600/)
   })
 
   test('marido vê a resenha pública da parceira no livro', async ({ page, loginAs, backend }) => {

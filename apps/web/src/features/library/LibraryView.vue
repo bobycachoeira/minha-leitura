@@ -25,7 +25,7 @@ const statusFilter = ref<ReadStatus | 'todos'>('todos')
 const search = ref('')
 const viewer = ref<string>('me')
 
-const shelfStatuses: ReadStatus[] = ['lendo', 'lido', 'abandonado']
+const shelfStatuses: ReadStatus[] = ['a_ler', 'lendo', 'lido', 'abandonado']
 
 const myId = computed(() => session.user?.id ?? '')
 const selectedOwner = computed(() => (viewer.value === 'me' ? myId.value : viewer.value))
@@ -45,10 +45,14 @@ const catalogCount = computed(() => library.books.length)
 type ShelfEntry = { book: LocalBook; userBook: LocalUserBook | null }
 
 function isOwned(ub: ShelfEntry['userBook']): boolean {
-  return !!ub && (ub.owned || ub.status !== 'quero_ler')
+  return !!ub && ub.owned
 }
 function isWish(ub: ShelfEntry['userBook']): boolean {
-  return !!ub && ub.status === 'quero_ler' && !ub.owned
+  return !!ub && !ub.owned
+}
+/** Owned books not started yet (queue for the next reading). */
+function inQueue(ub: ShelfEntry['userBook']): boolean {
+  return !!ub && ub.owned && (ub.status === 'a_ler' || ub.status === 'quero_ler')
 }
 
 const filtered = computed(() => {
@@ -71,6 +75,7 @@ const filtered = computed(() => {
 const statusLabels: Record<ReadStatus | 'todos', string> = {
   todos: 'Todos',
   quero_ler: 'Desejo',
+  a_ler: 'Ainda vou ler',
   lendo: 'Lendo',
   lido: 'Li',
   abandonado: 'Deixei',
@@ -93,7 +98,7 @@ async function confirmFormat(format: 'fisico' | 'ereader'): Promise<void> {
   const target = pendingOwn.value
   formatOpen.value = false
   if (!target) return
-  await library.updateUserBook(target.id, { owned: true, format })
+  await library.updateUserBook(target.id, { owned: true, format, status: 'a_ler' })
   pendingOwn.value = null
 }
 
@@ -200,18 +205,16 @@ watch(
           <span
             v-if="entry.userBook?.format"
             class="chip !py-0 text-[0.58rem]"
-            :class="entry.userBook.format === 'ereader' ? '!text-sky-700' : ''"
+            :class="
+              entry.userBook.format === 'ereader'
+                ? '!text-sky-600 !border-sky/40'
+                : '!text-saffron-600 !border-saffron/40'
+            "
           >
             {{ entry.userBook.format === 'fisico' ? 'Físico' : 'E-reader' }}
           </span>
           <p
-            v-if="
-              view === 'estante' &&
-              viewer === 'me' &&
-              entry.userBook?.owned &&
-              entry.userBook.status === 'quero_ler' &&
-              queueIndex(entry.book.id) === 0
-            "
+            v-if="view === 'estante' && viewer === 'me' && inQueue(entry.userBook) && queueIndex(entry.book.id) === 0"
             class="text-[0.62rem] font-semibold text-sage"
           >
             Próximo da fila
@@ -229,7 +232,7 @@ watch(
             {{ statusLabels[entry.userBook.status] }}
           </span>
         </template>
-        <template v-else-if="view === 'estante' && viewer === 'me' && entry.userBook?.owned && entry.userBook.status === 'quero_ler'">
+        <template v-else-if="view === 'estante' && viewer === 'me' && inQueue(entry.userBook)">
           <div class="mt-auto flex items-center gap-1">
             <button
               class="btn btn-ghost btn-sm !px-2"

@@ -123,7 +123,7 @@ export const useLibraryStore = defineStore('library', () => {
   /** Owned books not yet started, in reading order. */
   function myQueue(): LocalUserBook[] {
     return userBooksOf(currentOwner())
-      .filter((b) => !b.deletedAt && b.owned && b.status === 'quero_ler')
+      .filter((b) => !b.deletedAt && b.owned && (b.status === 'a_ler' || b.status === 'quero_ler'))
       .sort((a, b) => {
         const qa = a.queueOrder ?? Number.MAX_SAFE_INTEGER
         const qb = b.queueOrder ?? Number.MAX_SAFE_INTEGER

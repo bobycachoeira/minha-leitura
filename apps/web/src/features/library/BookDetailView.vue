@@ -137,7 +137,7 @@ async function setFormat(format: 'fisico' | 'ereader'): Promise<void> {
 async function setOwnedWithFormat(format: 'fisico' | 'ereader'): Promise<void> {
   formatOpen.value = false
   if (!book.value) return
-  await library.updateUserBook(book.value.id, { owned: true, format })
+  await library.updateUserBook(book.value.id, { owned: true, format, status: 'a_ler' })
 }
 
 const isNextInQueue = computed(() => library.myQueue()[0]?.book === bookId.value)
@@ -368,6 +368,7 @@ function onStatusChanged(next: ReadStatus): void {
   const title = book.value.title
   const phrases: Record<ReadStatus, string> = {
     quero_ler: `Quero ler "${title}"`,
+    a_ler: `Ainda vou ler "${title}"`,
     lendo: `Comecei a ler "${title}"`,
     lido: `Terminei "${title}"`,
     abandonado: `Deixei de lado "${title}"`,
@@ -441,7 +442,7 @@ watch(
             <AppIcon name="edit" :size="14" /> Editar
           </button>
           <span v-if="isCurrentBook" class="chip !py-0 text-[0.62rem] !text-sage !border-sage/40">Leitura atual</span>
-          <button v-else class="btn btn-secondary btn-sm" @click="setCurrentBook">
+          <button v-else-if="userBook?.owned" class="btn btn-secondary btn-sm" @click="setCurrentBook">
             <AppIcon name="bookmark" :size="14" /> Definir como leitura atual
           </button>
           <button v-if="userBook && !userBook.owned" class="btn btn-secondary btn-sm" @click="formatOpen = true">
