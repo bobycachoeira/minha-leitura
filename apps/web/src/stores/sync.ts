@@ -96,9 +96,34 @@ async function applyChange(change: PullChange): Promise<void> {
     for (const d of dups) await db.userBooks.delete(d.id)
     await db.userBooks.put(local)
   } else if (change.entity === 'reading_logs') {
-    await db.readingLogs.put(toLocalReadingLog(record))
+    const local = toLocalReadingLog(record)
+    // The local copy keeps the client id until the pull; drop it so the same
+    // logical record (same syncId) doesn't appear twice.
+    const dups = await db.readingLogs.filter((l) => l.syncId === local.syncId && l.id !== local.id).toArray()
+    for (const d of dups) await db.readingLogs.delete(d.id)
+    await db.readingLogs.put(local)
   }
   // Other entities are not mirrored locally in this MVP.
+}
+
+/** Removes local mirror duplicates (same syncId stored twice) left by old bugs. */
+async function dedupeLocalLogs(): Promise<void> {
+  const outbox = await db.outbox.where('entity').equals('reading_logs').toArray()
+  const pendingIds = new Set(outbox.map((o) => o.recordId))
+  const all = await db.readingLogs.toArray()
+  const bySync = new Map<string, typeof all>()
+  for (const log of all) {
+    const list = bySync.get(log.syncId) ?? []
+    list.push(log)
+    bySync.set(log.syncId, list)
+  }
+  for (const list of bySync.values()) {
+    if (list.length < 2) continue
+    const keep = list.find((l) => pendingIds.has(l.id)) ?? list.find((l) => !l._dirty) ?? list[0]!
+    for (const log of list) {
+      if (log.id !== keep.id) await db.readingLogs.delete(log.id)
+    }
+  }
 }
 
 export const useSyncStore = defineStore('sync', () => {
@@ -119,6 +144,7 @@ export const useSyncStore = defineStore('sync', () => {
 
   async function bootstrap(): Promise<void> {
     await refreshPending()
+    await dedupeLocalLogs()
   }
 
   /** Pushes the Outbox in order; successful items leave the queue (FR-027/028). */
@@ -160,6 +186,7 @@ export const useSyncStore = defineStore('sync', () => {
     for (const change of response.changes) {
       await applyChange(change)
     }
+    await dedupeLocalLogs()
     cursor.value = response.cursor
     localStorage.setItem(CURSOR_KEY, response.cursor)
   }

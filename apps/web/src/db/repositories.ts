@@ -94,7 +94,7 @@ export async function updateLocalBook(bookId: string, patch: Partial<BookDraft>)
   const existing = await db.books.get(bookId)
   if (!existing) return
   const now = new Date().toISOString()
-  const syncId = newSyncId()
+  const syncId = existing.syncId
   const updated: LocalBook = { ...existing, ...patch, syncId, updated: now, _dirty: true }
   await db.books.put(toPlain(updated))
   const outboxId = await enqueue({
@@ -136,7 +136,8 @@ export async function upsertLocalUserBook(
   existingId?: string,
 ): Promise<LocalUserBook> {
   const now = new Date().toISOString()
-  const syncId = newSyncId()
+  const previous = existingId ? await db.userBooks.get(existingId) : null
+  const syncId = previous?.syncId ?? newSyncId()
   const record: LocalUserBook = {
     id: existingId ?? localId(),
     space: draft.space,
@@ -244,7 +245,7 @@ export async function updateLocalReadingLog(logId: string, patch: ReadingLogPatc
   const existing = await db.readingLogs.get(logId)
   if (!existing) return
   const now = new Date().toISOString()
-  const syncId = newSyncId()
+  const syncId = existing.syncId
   const updated = { ...existing, ...patch, syncId, updated: now, _dirty: true }
   await db.readingLogs.put(toPlain(updated))
   const editBook = await db.books.get(updated.book)
@@ -274,7 +275,7 @@ export async function deleteLocalReadingLog(logId: string): Promise<void> {
   const existing = await db.readingLogs.get(logId)
   if (!existing) return
   const now = new Date().toISOString()
-  const syncId = newSyncId()
+  const syncId = existing.syncId
   await db.readingLogs.update(logId, { deletedAt: now, syncId, _dirty: true })
   const delBook = await db.books.get(existing.book)
   await enqueue({
