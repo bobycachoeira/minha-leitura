@@ -13,6 +13,7 @@ import { useReadingTimerStore } from '../../stores/reading-timer.js'
 import { remainingLabel } from '../../lib/format.js'
 import BookCover from '../library/BookCover.vue'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const library = useLibraryStore()
 const goals = useGoalsStore()
@@ -22,6 +23,7 @@ const timer = useReadingTimerStore()
 
 const myId = computed(() => session.user?.id ?? '')
 const today = todayISODate(DEFAULT_TIMEZONE)
+const loading = ref(true)
 const readToday = ref(false)
 const lastLogByBook = ref<Record<string, string>>({})
 const logging = ref(false)
@@ -140,9 +142,13 @@ function discardSession(): void {
 }
 
 onMounted(async () => {
-  if (library.books.length === 0) await library.load()
-  await goals.load()
-  await refreshLogs()
+  try {
+    if (library.books.length === 0) await library.load()
+    await goals.load()
+    await refreshLogs()
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -165,7 +171,20 @@ onMounted(async () => {
       </template>
     </p>
 
-    <template v-if="current">
+    <template v-if="loading">
+      <div class="mt-3 space-y-3" aria-hidden="true">
+        <SkeletonBlock class="h-4 w-48" />
+        <div class="flex items-center gap-3">
+          <SkeletonBlock class="h-16 w-12 rounded-lg" />
+          <div class="flex-1 space-y-2">
+            <SkeletonBlock class="h-4 w-2/3" />
+            <SkeletonBlock class="h-3 w-1/3" />
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="current">
       <div class="mt-3 flex items-center gap-3">
         <RouterLink :to="`/library/${current.userBook.book}`" class="w-12 shrink-0">
           <BookCover

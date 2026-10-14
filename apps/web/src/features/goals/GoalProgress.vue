@@ -5,6 +5,9 @@ import { useGoalsStore, type Goal } from '../../stores/goals.js'
 import { daysLabel, remainingLabel } from '../../lib/format.js'
 import AppIcon from '../../components/AppIcon.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
+
+withDefaults(defineProps<{ loading?: boolean }>(), { loading: false })
 
 const goals = useGoalsStore()
 const rows = computed(() => goals.goals)
@@ -15,6 +18,7 @@ const editWeekStart = ref(1)
 const editGrace = ref(24)
 const pendingDelete = ref<Goal | null>(null)
 const historyOpen = ref<Record<string, boolean>>({})
+const periodsLoading = ref<Record<string, boolean>>({})
 
 function label(metric: GoalMetric): string {
   return metric === 'paginas' ? 'páginas' : 'livros'
@@ -65,7 +69,14 @@ async function confirmDelete(): Promise<void> {
 
 async function toggleHistory(goal: Goal): Promise<void> {
   historyOpen.value[goal.id] = !historyOpen.value[goal.id]
-  if (historyOpen.value[goal.id]) await goals.loadPeriods(goal.id)
+  if (historyOpen.value[goal.id]) {
+    periodsLoading.value[goal.id] = true
+    try {
+      await goals.loadPeriods(goal.id)
+    } finally {
+      periodsLoading.value[goal.id] = false
+    }
+  }
 }
 
 function shortDate(value: string): string {
@@ -75,6 +86,17 @@ function shortDate(value: string): string {
 
 <template>
   <ul class="space-y-3">
+    <template v-if="loading">
+      <li v-for="n in 2" :key="`skeleton-${n}`" class="card space-y-4 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <SkeletonBlock class="h-4 w-40" />
+          <SkeletonBlock class="h-5 w-14" />
+        </div>
+        <SkeletonBlock class="h-2.5 w-full" />
+        <SkeletonBlock class="h-3 w-36" />
+      </li>
+    </template>
+
     <li v-for="goal in rows" :key="goal.id" class="card p-4" :class="{ 'opacity-70': !goal.active }">
       <div class="flex items-center justify-between gap-3">
         <span class="text-sm font-semibold text-ink">
@@ -141,8 +163,12 @@ function shortDate(value: string): string {
       </div>
 
       <div v-if="historyOpen[goal.id]" class="mt-3">
+        <div v-if="periodsLoading[goal.id]" class="space-y-2">
+          <SkeletonBlock class="h-9 w-full rounded-lg" />
+          <SkeletonBlock class="h-9 w-full rounded-lg" />
+        </div>
         <ul
-          v-if="goals.periodsByGoal[goal.id]?.length"
+          v-else-if="goals.periodsByGoal[goal.id]?.length"
           class="divide-y divide-line/60 overflow-hidden rounded-xl border border-line"
         >
           <li
@@ -172,7 +198,7 @@ function shortDate(value: string): string {
       </div>
     </li>
 
-    <li v-if="rows.length === 0" class="card grid place-items-center gap-2 p-8 text-center">
+    <li v-if="!loading && rows.length === 0" class="card grid place-items-center gap-2 p-8 text-center">
       <p class="text-sm text-ink-soft">Nenhuma meta ainda. Defina uma para acompanhar seu ritmo.</p>
     </li>
   </ul>

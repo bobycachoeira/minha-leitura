@@ -5,6 +5,7 @@ import { useSessionStore } from '../../stores/session.js'
 import { remainingLabel } from '../../lib/format.js'
 import type { SpaceMemberItem } from '../../api/space-api.js'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 interface GoalPeriodItem {
   id: string
@@ -27,12 +28,18 @@ const session = useSessionStore()
 const others = computed(() => props.members.filter((member) => !member.isSelf))
 const selected = ref('')
 const data = ref<DashboardData | null>(null)
+const loading = ref(false)
 
 async function load(ownerId: string): Promise<void> {
   if (!session.spaceId || !ownerId) return
-  data.value = await apiFetch<DashboardData>('/api/dashboard', {
-    query: { space: session.spaceId, owner: ownerId },
-  })
+  loading.value = true
+  try {
+    data.value = await apiFetch<DashboardData>('/api/dashboard', {
+      query: { space: session.spaceId, owner: ownerId },
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 watch(selected, (value) => {
@@ -53,12 +60,25 @@ onMounted(() => {
       </select>
     </div>
 
-    <div class="mt-3 flex items-baseline gap-2">
+    <div v-if="loading" class="mt-3 space-y-2.5">
+      <SkeletonBlock class="h-9 w-24 rounded-xl" />
+      <SkeletonBlock class="h-4 w-40" />
+    </div>
+    <div v-else class="mt-3 flex items-baseline gap-2">
       <span class="stat-num text-3xl text-oxblood">{{ data?.streak ?? 0 }}</span>
       <span class="text-sm text-ink-soft">períodos em sequência</span>
     </div>
 
-    <ul class="mt-3 space-y-2">
+    <div v-if="loading" class="mt-3 space-y-3">
+      <div v-for="n in 2" :key="`skeleton-${n}`" class="space-y-2">
+        <div class="flex items-center justify-between">
+          <SkeletonBlock class="h-4 w-24" />
+          <SkeletonBlock class="h-4 w-10" />
+        </div>
+        <SkeletonBlock class="h-3 w-36" />
+      </div>
+    </div>
+    <ul v-else class="mt-3 space-y-2">
       <li
         v-for="goal in data?.activeGoals ?? []"
         :key="goal.id"
@@ -72,7 +92,7 @@ onMounted(() => {
           {{ remainingLabel(goal.metric ?? 'paginas', Math.max(0, goal.target - goal.progress)) }}
         </p>
       </li>
-      <li v-if="(data?.activeGoals ?? []).length === 0" class="text-sm text-ink-mute">Sem metas ativas.</li>
+      <li v-if="!(data?.activeGoals ?? []).length" class="text-sm text-ink-mute">Sem metas ativas.</li>
     </ul>
   </section>
 </template>

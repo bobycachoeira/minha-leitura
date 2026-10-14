@@ -77,6 +77,15 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
   períodos batidos; novo card “Dias seguidos lendo” mostra a sequência atual de
   dias com registro e o recorde (`computeDayStreak` em `@ml/shared`, exposto em
   `/api/dashboard` como `dayStreak`).
+- **Ajuste Metas — carregamento e compartilhamento: ✅.** Skeleton nos cards de
+  sequência (sem piscar 0 → valor), botões “Publicar no mural” (kind `streak`) e
+  card de imagem “Minha constância” (canvas, square/story) com dias seguidos,
+  recorde e períodos batidos.
+- **Ajuste carregamento (UX): ✅.** Componente `SkeletonBlock` + skeletons nos
+  pontos que piscavam 0/vazio antes do dado: Metas (metas ativas, histórico,
+  gráfico), card Hoje, mural (posts, faixa de metas, comentários), Estante,
+  Desafios (duelo/lista), Conquistas (marcos/troféus), perfil público, detalhe
+  do livro, Pessoas e Notificações.
 
 ## Testes E2E (Playwright)
 

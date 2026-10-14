@@ -15,6 +15,7 @@ import TodayCard from '../dashboard/TodayCard.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
 import AchievementCard from '../../components/AchievementCard.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const feed = useFeedStore()
 const goals = useGoalsStore()
@@ -27,6 +28,7 @@ const composeText = ref('')
 const visibility = ref<'space' | 'public'>('space')
 const posting = ref(false)
 const openComments = ref<Record<string, boolean>>({})
+const commentsLoading = ref<Record<string, boolean>>({})
 const replyTo = ref<Record<string, string>>({})
 const replyDraft = ref<Record<string, string>>({})
 
@@ -63,7 +65,14 @@ async function submitPost(): Promise<void> {
 
 async function toggleComments(postId: string): Promise<void> {
   openComments.value[postId] = !openComments.value[postId]
-  if (openComments.value[postId]) await feed.loadComments(postId)
+  if (openComments.value[postId]) {
+    commentsLoading.value[postId] = true
+    try {
+      await feed.loadComments(postId)
+    } finally {
+      commentsLoading.value[postId] = false
+    }
+  }
 }
 
 async function submitComment(postId: string): Promise<void> {
@@ -89,6 +98,7 @@ function kindGlyph(kind: string): string {
   if (kind === 'meta_batida') return 'award'
   if (kind === 'livro_concluido') return 'check'
   if (kind === 'desafio') return 'users'
+  if (kind === 'streak') return 'flame'
   return 'sparkles'
 }
 
@@ -154,31 +164,40 @@ watch(
         </p>
       </RouterLink>
 
-      <RouterLink
-        v-for="row in goals.activeGoals"
-        :key="row.goal.id"
-        to="/goals"
-        class="card-flat min-w-[10.5rem] p-3"
-      >
-        <p class="eyebrow !text-[0.55rem]">
-          {{ row.goal.metric === 'paginas' ? 'Páginas' : 'Livros' }} {{ goalLabel(row.goal.period) }}
-        </p>
-        <p class="stat-num mt-1 text-2xl" :class="row.period?.status === 'batida' ? 'text-sage' : 'text-oxblood'">
-          {{ row.period?.progress ?? 0 }}<span class="text-sm text-ink-mute">/{{ row.goal.target }}</span>
-        </p>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
-          <div
-            class="h-full rounded-full transition-all duration-700"
-            :class="row.period?.status === 'batida' ? 'bg-sage' : 'bg-oxblood'"
-            :style="{ width: `${goalPct(row.period?.progress, row.goal.target)}%` }"
-          />
-        </div>
-        <p class="mt-1 text-[0.62rem] text-ink-mute">
-          {{ remainingLabel(row.goal.metric, row.period?.remaining ?? row.goal.target) }} ·
-          {{ daysLabel(row.period?.daysRemaining ?? 0) }}
-          <template v-if="row.period?.endDate"> · fecha em {{ formatDayMonth(row.period.endDate) }}</template>
-        </p>
-      </RouterLink>
+      <template v-if="goals.loading">
+        <SkeletonBlock
+          v-for="n in 2"
+          :key="`skeleton-goal-${n}`"
+          class="h-[6.6rem] min-w-[10.5rem] shrink-0 rounded-2xl"
+        />
+      </template>
+      <template v-else>
+        <RouterLink
+          v-for="row in goals.activeGoals"
+          :key="row.goal.id"
+          to="/goals"
+          class="card-flat min-w-[10.5rem] p-3"
+        >
+          <p class="eyebrow !text-[0.55rem]">
+            {{ row.goal.metric === 'paginas' ? 'Páginas' : 'Livros' }} {{ goalLabel(row.goal.period) }}
+          </p>
+          <p class="stat-num mt-1 text-2xl" :class="row.period?.status === 'batida' ? 'text-sage' : 'text-oxblood'">
+            {{ row.period?.progress ?? 0 }}<span class="text-sm text-ink-mute">/{{ row.goal.target }}</span>
+          </p>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-paper-sunken">
+            <div
+              class="h-full rounded-full transition-all duration-700"
+              :class="row.period?.status === 'batida' ? 'bg-sage' : 'bg-oxblood'"
+              :style="{ width: `${goalPct(row.period?.progress, row.goal.target)}%` }"
+            />
+          </div>
+          <p class="mt-1 text-[0.62rem] text-ink-mute">
+            {{ remainingLabel(row.goal.metric, row.period?.remaining ?? row.goal.target) }} ·
+            {{ daysLabel(row.period?.daysRemaining ?? 0) }}
+            <template v-if="row.period?.endDate"> · fecha em {{ formatDayMonth(row.period.endDate) }}</template>
+          </p>
+        </RouterLink>
+      </template>
     </div>
 
     <form class="card p-3" @submit.prevent="submitPost">
@@ -216,12 +235,25 @@ watch(
       </div>
     </form>
 
-    <div v-if="feed.posts.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
+    <div v-if="feed.loading && feed.posts.length === 0" class="space-y-4">
+      <div v-for="n in 2" :key="`skeleton-${n}`" class="card p-4">
+        <div class="flex items-start gap-3">
+          <SkeletonBlock class="h-9 w-9 shrink-0 rounded-full" />
+          <div class="flex-1 space-y-2.5">
+            <SkeletonBlock class="h-3 w-28" />
+            <SkeletonBlock class="h-4 w-full" />
+            <SkeletonBlock class="h-4 w-2/3" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="feed.posts.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
       <AppIcon name="comment" :size="26" class="text-ink-mute" />
       <p class="text-sm text-ink-soft">Ainda sem novidades. Publique a primeira leitura!</p>
     </div>
 
-    <ul class="space-y-4">
+    <ul v-else class="space-y-4">
       <li v-for="post in feed.posts" :key="post.id" class="card animate-rise p-4">
         <template v-if="post.type === 'notification'">
           <div class="flex items-center gap-3">
@@ -289,7 +321,11 @@ watch(
         </div>
 
         <div v-if="openComments[post.id]" class="mt-3 space-y-3">
-          <ul v-if="roots(post.id).length" class="space-y-3">
+          <div v-if="commentsLoading[post.id]" class="space-y-2">
+            <SkeletonBlock class="h-10 w-full rounded-xl" />
+            <SkeletonBlock class="h-10 w-3/4 rounded-xl" />
+          </div>
+          <ul v-else-if="roots(post.id).length" class="space-y-3">
             <li v-for="c in roots(post.id)" :key="c.id" class="space-y-2">
               <div class="flex items-start gap-2">
                 <Avatar :name="c.authorName" :src="c.authorAvatar" :size="26" />

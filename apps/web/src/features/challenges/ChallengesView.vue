@@ -6,6 +6,7 @@ import { listMembers, type SpaceMemberItem } from '../../api/space-api.js'
 import { useSessionStore } from '../../stores/session.js'
 import Avatar from '../../components/Avatar.vue'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 interface ChallengeItem {
   id: string
@@ -27,6 +28,9 @@ const title = ref('')
 const target = ref(2)
 const metric = ref<'livros' | 'paginas'>('livros')
 const creating = ref(false)
+const loadingChallenges = ref(true)
+const loadingMembers = ref(true)
+const loadingDuel = ref(false)
 
 // ---- duel ----
 const duelWindow = ref<DuelWindow>('mes')
@@ -78,28 +82,33 @@ async function computeDuel(): Promise<void> {
     duel.value = []
     return
   }
-  const { start, end } = windowBounds(duelWindow.value)
-  const logs = await db.readingLogs.where('space').equals(session.spaceId).toArray()
-  const userBooks = await db.userBooks.where('space').equals(session.spaceId).toArray()
-  duel.value = members.value.map((member) => {
-    let value = 0
-    if (duelMetric.value === 'paginas') {
-      value = logs
-        .filter((l) => !l.deletedAt && l.owner === member.user && l.date >= start && l.date <= end)
-        .reduce((sum, l) => sum + l.pages, 0)
-    } else {
-      value = userBooks.filter(
-        (b) =>
-          !b.deletedAt &&
-          b.owner === member.user &&
-          b.status === 'lido' &&
-          b.finishedAt &&
-          String(b.finishedAt).slice(0, 10) >= start &&
-          String(b.finishedAt).slice(0, 10) <= end,
-      ).length
-    }
-    return { userId: member.user, name: member.name, value }
-  })
+  loadingDuel.value = true
+  try {
+    const { start, end } = windowBounds(duelWindow.value)
+    const logs = await db.readingLogs.where('space').equals(session.spaceId).toArray()
+    const userBooks = await db.userBooks.where('space').equals(session.spaceId).toArray()
+    duel.value = members.value.map((member) => {
+      let value = 0
+      if (duelMetric.value === 'paginas') {
+        value = logs
+          .filter((l) => !l.deletedAt && l.owner === member.user && l.date >= start && l.date <= end)
+          .reduce((sum, l) => sum + l.pages, 0)
+      } else {
+        value = userBooks.filter(
+          (b) =>
+            !b.deletedAt &&
+            b.owner === member.user &&
+            b.status === 'lido' &&
+            b.finishedAt &&
+            String(b.finishedAt).slice(0, 10) >= start &&
+            String(b.finishedAt).slice(0, 10) <= end,
+        ).length
+      }
+      return { userId: member.user, name: member.name, value }
+    })
+  } finally {
+    loadingDuel.value = false
+  }
 }
 
 watch([duelWindow, duelMetric], () => void computeDuel())
@@ -109,8 +118,15 @@ function pct(item: ChallengeItem): number {
 }
 
 async function load(): Promise<void> {
-  if (!session.spaceId) return
-  challenges.value = await apiFetch<ChallengeItem[]>('/api/challenges', { query: { space: session.spaceId } })
+  if (!session.spaceId) {
+    loadingChallenges.value = false
+    return
+  }
+  try {
+    challenges.value = await apiFetch<ChallengeItem[]>('/api/challenges', { query: { space: session.spaceId } })
+  } finally {
+    loadingChallenges.value = false
+  }
 }
 
 async function create(): Promise<void> {
@@ -134,7 +150,11 @@ async function create(): Promise<void> {
 
 onMounted(async () => {
   await load()
-  if (session.spaceId) members.value = await listMembers(session.spaceId)
+  try {
+    if (session.spaceId) members.value = await listMembers(session.spaceId)
+  } finally {
+    loadingMembers.value = false
+  }
   await computeDuel()
 })
 </script>
@@ -146,7 +166,14 @@ onMounted(async () => {
       <h1 class="display-hero mt-1 text-3xl">Desafios</h1>
     </header>
 
-    <div v-if="!isSolo" class="card p-5">
+    <div v-if="loadingMembers" class="card space-y-4 p-5">
+      <SkeletonBlock class="h-3 w-36" />
+      <SkeletonBlock class="h-10 w-56 rounded-xl" />
+      <SkeletonBlock class="h-10 w-full rounded-xl" />
+      <SkeletonBlock class="h-10 w-full rounded-xl" />
+    </div>
+
+    <div v-else-if="!isSolo" class="card p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="eyebrow flex items-center gap-1.5">
           <AppIcon name="target" :size="14" /> Duelo · {{ windowLabels[duelWindow] }}
@@ -178,7 +205,11 @@ onMounted(async () => {
         </button>
       </div>
 
-      <ul class="mt-4 space-y-3">
+      <div v-if="loadingDuel" class="mt-4 space-y-3">
+        <SkeletonBlock class="h-9 w-full rounded-xl" />
+        <SkeletonBlock class="h-9 w-full rounded-xl" />
+      </div>
+      <ul v-else class="mt-4 space-y-3">
         <li v-for="row in duel" :key="row.userId">
           <div class="flex items-center gap-2">
             <Avatar :name="row.name" :size="24" />
@@ -195,11 +226,11 @@ onMounted(async () => {
       <p class="mt-3 text-xs text-ink-mute">Contando {{ metricLabels[duelMetric] }} de cada um — estimule a leitura a dois.</p>
     </div>
 
-    <div v-if="isSolo" class="card-flat p-5 text-sm text-ink-soft">
+    <div v-else class="card-flat p-5 text-sm text-ink-soft">
       Desafios conjuntos aparecem quando o espaço tem mais de uma pessoa.
     </div>
 
-    <form v-else class="card space-y-4 p-4 sm:p-5" @submit.prevent="create">
+    <form v-if="!loadingMembers && !isSolo" class="card space-y-4 p-4 sm:p-5" @submit.prevent="create">
       <p class="eyebrow">Novo desafio</p>
       <div class="grid gap-3 sm:grid-cols-3">
         <label class="block sm:col-span-1">
@@ -225,7 +256,15 @@ onMounted(async () => {
       </div>
     </form>
 
-    <ul class="space-y-3">
+    <div v-if="loadingChallenges" class="space-y-3">
+      <div v-for="n in 2" :key="`skeleton-${n}`" class="card space-y-3 p-4">
+        <SkeletonBlock class="h-4 w-40" />
+        <SkeletonBlock class="h-2.5 w-full" />
+        <SkeletonBlock class="h-3 w-28" />
+      </div>
+    </div>
+
+    <ul v-else class="space-y-3">
       <li v-for="item in challenges" :key="item.id" class="card p-4">
         <div class="flex items-center justify-between gap-3">
           <span class="font-medium text-ink">{{ item.title }}</span>

@@ -20,6 +20,7 @@ import FinishedPrompt from '../../components/FinishedPrompt.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
 import FormatPrompt from '../../components/FormatPrompt.vue'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 interface LogEntry {
   id: string
@@ -42,6 +43,8 @@ const sync = useSyncStore()
 
 const myId = computed(() => session.user?.id ?? '')
 const bookId = computed(() => String(route.params.id))
+const loading = ref(true)
+const logsLoading = ref(true)
 const book = computed(() => library.books.find((candidate) => candidate.id === bookId.value) ?? null)
 const userBook = computed(
   () => library.userBooks.find((entry) => entry.book === bookId.value && entry.owner === myId.value) ?? null,
@@ -251,20 +254,25 @@ async function save(): Promise<void> {
 
 // ---- reading logs ----
 async function loadLogs(): Promise<void> {
-  const rows = await db.readingLogs.where('book').equals(bookId.value).toArray()
-  logs.value = rows
-    .filter((row) => !row.deletedAt && row.owner === myId.value)
-    .map((row) => ({
-      id: row.id,
-      date: row.date,
-      pages: row.pages,
-      endPage: row.endPage,
-      minutes: row.minutes,
-      note: row.note,
-      quote: row.quote,
-      quotePage: row.quotePage,
-    }))
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+  logsLoading.value = true
+  try {
+    const rows = await db.readingLogs.where('book').equals(bookId.value).toArray()
+    logs.value = rows
+      .filter((row) => !row.deletedAt && row.owner === myId.value)
+      .map((row) => ({
+        id: row.id,
+        date: row.date,
+        pages: row.pages,
+        endPage: row.endPage,
+        minutes: row.minutes,
+        note: row.note,
+        quote: row.quote,
+        quotePage: row.quotePage,
+      }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+  } finally {
+    logsLoading.value = false
+  }
 }
 
 function openPublish(text: string): void {
@@ -395,10 +403,14 @@ async function confirmFinished(finishedAt: string | null): Promise<void> {
 }
 
 onMounted(async () => {
-  if (library.books.length === 0) await library.load()
-  void members.load()
-  await goals.load()
-  await loadLogs()
+  try {
+    if (library.books.length === 0) await library.load()
+    void members.load()
+    await goals.load()
+    await loadLogs()
+  } finally {
+    loading.value = false
+  }
 })
 
 // After a background sync the local records get the server ids; reload the
@@ -410,7 +422,20 @@ watch(
 </script>
 
 <template>
-  <section v-if="book" class="space-y-6">
+  <section v-if="loading && !book" class="space-y-6" aria-busy="true">
+    <SkeletonBlock class="h-8 w-24 rounded-lg" />
+    <div class="flex gap-5">
+      <SkeletonBlock class="aspect-[2/3] w-28 shrink-0 rounded-xl sm:w-36" />
+      <div class="flex min-w-0 flex-1 flex-col gap-3">
+        <SkeletonBlock class="h-3 w-24" />
+        <SkeletonBlock class="h-7 w-3/4" />
+        <SkeletonBlock class="h-4 w-1/2" />
+        <SkeletonBlock class="h-2 w-full" />
+      </div>
+    </div>
+  </section>
+
+  <section v-else-if="book" class="space-y-6">
     <button class="btn btn-ghost btn-sm" @click="router.back()">
       <AppIcon name="back" :size="18" /> Voltar
     </button>
@@ -588,7 +613,13 @@ watch(
       </div>
     </form>
 
-    <div v-if="logs.length" class="card p-4 sm:p-5">
+    <div v-if="logsLoading" class="card space-y-3 p-4 sm:p-5">
+      <SkeletonBlock class="h-3 w-40" />
+      <SkeletonBlock class="h-10 w-full rounded-xl" />
+      <SkeletonBlock class="h-10 w-full rounded-xl" />
+    </div>
+
+    <div v-else-if="logs.length" class="card p-4 sm:p-5">
       <p class="eyebrow mb-3">Histórico de leitura</p>
       <ul class="divide-y divide-line/60">
         <li v-for="log in logs" :key="log.id" class="py-3">

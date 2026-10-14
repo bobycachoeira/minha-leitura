@@ -12,6 +12,7 @@ import BookForm from './BookForm.vue'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
 import FormatPrompt from '../../components/FormatPrompt.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 type View = 'estante' | 'desejos' | 'catalogo'
 
@@ -152,13 +153,19 @@ watch(
 
     <div class="flex flex-wrap items-center gap-2">
       <button class="chip" :class="{ 'chip-active': view === 'estante' }" @click="view = 'estante'">
-        <AppIcon name="books" :size="15" /> Estante · {{ shelfCount }}
+        <AppIcon name="books" :size="15" /> Estante ·
+        <SkeletonBlock v-if="library.loading" class="inline-block h-3 w-5 align-middle" />
+        <template v-else>{{ shelfCount }}</template>
       </button>
       <button class="chip" :class="{ 'chip-active': view === 'desejos' }" @click="view = 'desejos'">
-        <AppIcon name="bookmark" :size="15" /> Desejos · {{ wishCount }}
+        <AppIcon name="bookmark" :size="15" /> Desejos ·
+        <SkeletonBlock v-if="library.loading" class="inline-block h-3 w-5 align-middle" />
+        <template v-else>{{ wishCount }}</template>
       </button>
       <button class="chip" :class="{ 'chip-active': view === 'catalogo' }" @click="view = 'catalogo'">
-        <AppIcon name="search" :size="15" /> Catálogo · {{ catalogCount }}
+        <AppIcon name="search" :size="15" /> Catálogo ·
+        <SkeletonBlock v-if="library.loading" class="inline-block h-3 w-5 align-middle" />
+        <template v-else>{{ catalogCount }}</template>
       </button>
     </div>
 
@@ -174,7 +181,15 @@ watch(
       </select>
     </div>
 
-    <div v-if="filtered.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
+    <div v-if="library.loading && filtered.length === 0" class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
+      <div v-for="n in 6" :key="`skeleton-${n}`" class="flex flex-col gap-2">
+        <SkeletonBlock class="aspect-[2/3] w-full rounded-xl" />
+        <SkeletonBlock class="h-4 w-3/4" />
+        <SkeletonBlock class="h-3 w-1/2" />
+      </div>
+    </div>
+
+    <div v-else-if="filtered.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
       <AppIcon :name="view === 'desejos' ? 'bookmark' : view === 'catalogo' ? 'search' : 'books'" :size="26" class="text-ink-mute" />
       <p class="text-sm text-ink-soft">
         {{

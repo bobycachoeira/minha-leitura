@@ -12,19 +12,26 @@ import {
 import { relativeTime } from '../../lib/format.js'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const profile = ref<PublicProfile | null>(null)
 const posts = ref<PublicPost[]>([])
+const postsLoading = ref(true)
 const busy = ref(false)
 
 const id = computed(() => String(route.params.id))
 
 async function load(): Promise<void> {
   profile.value = await getProfile(id.value)
-  posts.value = await getUserPosts(id.value)
+  postsLoading.value = true
+  try {
+    posts.value = await getUserPosts(id.value)
+  } finally {
+    postsLoading.value = false
+  }
 }
 
 async function toggleFollow(): Promise<void> {
@@ -71,7 +78,11 @@ watch(id, load)
       </button>
     </header>
 
-    <div v-if="posts.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
+    <div v-if="postsLoading" class="space-y-4">
+      <SkeletonBlock v-for="n in 2" :key="`skeleton-${n}`" class="h-24 rounded-2xl" />
+    </div>
+
+    <div v-else-if="posts.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
       <AppIcon name="comment" :size="26" class="text-ink-mute" />
       <p class="text-sm text-ink-soft">Nenhuma postagem pública por aqui.</p>
     </div>

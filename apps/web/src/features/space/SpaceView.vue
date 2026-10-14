@@ -13,6 +13,7 @@ import { useToastsStore } from '../../stores/toasts.js'
 import { ApiRequestError, getStepUpToken } from '../../api/client.js'
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const PENDING_INVITE_KEY = 'ml.pending.invite'
 
@@ -22,6 +23,7 @@ const route = useRoute()
 
 const spaceName = ref('')
 const members = ref<SpaceMemberItem[]>([])
+const loading = ref(true)
 const inviteEmail = ref('')
 const inviteRole = ref<'partner' | 'viewer'>('partner')
 const inviteToken = ref<string | null>(null)
@@ -106,7 +108,11 @@ async function submitAccept(): Promise<void> {
 }
 
 onMounted(async () => {
-  await load()
+  try {
+    await load()
+  } finally {
+    loading.value = false
+  }
   const invite = route.query.invite
   if (typeof invite === 'string' && invite) {
     acceptToken.value = invite
@@ -121,7 +127,8 @@ onMounted(async () => {
   <section class="space-y-5">
     <header>
       <p class="eyebrow flex items-center gap-1.5"><AppIcon name="space" :size="14" /> Espaço</p>
-      <h1 class="display-hero mt-1 text-3xl">{{ spaceName || 'Meu espaço' }}</h1>
+      <SkeletonBlock v-if="loading && !spaceName" class="mt-1.5 h-8 w-44 rounded-lg" />
+      <h1 v-else class="display-hero mt-1 text-3xl">{{ spaceName || 'Meu espaço' }}</h1>
       <p class="mt-1 text-sm text-ink-soft">
         O espaço reúne o acervo, as metas e o feed de quem faz parte.
       </p>
@@ -135,7 +142,10 @@ onMounted(async () => {
     <div v-else class="space-y-5">
       <div class="card p-5">
         <p class="eyebrow mb-3">Membros</p>
-        <ul class="divide-y divide-line/60">
+        <div v-if="loading" class="space-y-2">
+          <SkeletonBlock v-for="n in 2" :key="`skeleton-${n}`" class="h-10 w-full rounded-lg" />
+        </div>
+        <ul v-else class="divide-y divide-line/60">
           <li v-for="m in members" :key="m.id" class="flex items-center gap-3 py-2">
             <Avatar :name="m.name" :size="30" />
             <span class="flex-1 text-sm text-ink-soft">{{ m.name }}</span>

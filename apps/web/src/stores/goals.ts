@@ -176,11 +176,17 @@ export const useGoalsStore = defineStore('goals', () => {
   const periodsByGoal = ref<Record<string, GoalPeriodSnapshot[]>>({})
 
   const milestones = ref<MilestoneItem[]>([])
+  const milestonesLoading = ref(false)
   const streakStatus = ref<{ canFreeze: boolean; brokenDate: string }>({ canFreeze: false, brokenDate: '' })
 
   async function loadMilestones(): Promise<void> {
     if (!session.spaceId) return
-    milestones.value = await apiFetch<MilestoneItem[]>('/api/milestones', { query: { space: session.spaceId } })
+    milestonesLoading.value = true
+    try {
+      milestones.value = await apiFetch<MilestoneItem[]>('/api/milestones', { query: { space: session.spaceId } })
+    } finally {
+      milestonesLoading.value = false
+    }
   }
 
   async function loadStreakStatus(): Promise<void> {
@@ -222,6 +228,7 @@ export const useGoalsStore = defineStore('goals', () => {
     progressByGoal,
     periodsByGoal,
     milestones,
+    milestonesLoading,
     streakStatus,
     load,
     loadMilestones,

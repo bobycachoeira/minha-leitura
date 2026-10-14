@@ -5,16 +5,22 @@ import { findPerson, follow, listFollowing, unfollow, type Following, type Perso
 import AppIcon from '../../components/AppIcon.vue'
 import Avatar from '../../components/Avatar.vue'
 import ConfirmDialog from '../../components/ConfirmDialog.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const email = ref('')
 const result = ref<PersonResult | null>(null)
 const following = ref<Following[]>([])
+const followingLoading = ref(true)
 const busy = ref(false)
 const message = ref<string | null>(null)
 const pendingUnfollow = ref<{ id?: string; name?: string } | null>(null)
 
 async function loadFollowing(): Promise<void> {
-  following.value = await listFollowing()
+  try {
+    following.value = await listFollowing()
+  } finally {
+    followingLoading.value = false
+  }
 }
 
 async function search(): Promise<void> {
@@ -103,7 +109,10 @@ onMounted(loadFollowing)
 
     <div class="space-y-3">
       <h2 class="eyebrow">Seguindo</h2>
-      <ul v-if="following.length" class="divide-y divide-line/60 overflow-hidden rounded-2xl border border-line">
+      <div v-if="followingLoading" class="space-y-2">
+        <SkeletonBlock v-for="n in 2" :key="`skeleton-${n}`" class="h-12 w-full rounded-2xl" />
+      </div>
+      <ul v-else-if="following.length" class="divide-y divide-line/60 overflow-hidden rounded-2xl border border-line">
         <li v-for="person in following" :key="person.id" class="flex items-center justify-between px-4 py-3">
           <RouterLink :to="`/u/${person.id}`" class="flex items-center gap-3">
             <Avatar :name="person.name" :size="32" />

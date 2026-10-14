@@ -13,6 +13,7 @@ import type { AchievementPayloadInput } from '@ml/shared'
 import AppIcon from '../../components/AppIcon.vue'
 import PublishPrompt from '../../components/PublishPrompt.vue'
 import AchievementCard from '../../components/AchievementCard.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 const session = useSessionStore()
 const achievements = useAchievementsStore()
@@ -141,7 +142,10 @@ onMounted(async () => {
 
     <div class="card p-4 sm:p-5">
       <p class="eyebrow mb-3 flex items-center gap-1.5"><AppIcon name="award" :size="14" /> Marcos</p>
-      <ul class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+      <div v-if="goals.milestonesLoading" class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+        <SkeletonBlock v-for="n in 5" :key="`skeleton-${n}`" class="h-24 rounded-xl" />
+      </div>
+      <ul v-else class="grid grid-cols-3 gap-3 sm:grid-cols-5">
         <li
           v-for="m in milestones"
           :key="m.key"
@@ -155,12 +159,16 @@ onMounted(async () => {
       </ul>
     </div>
 
-    <div v-if="achievements.items.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
+    <div v-if="achievements.loading" class="grid gap-5 sm:grid-cols-2">
+      <SkeletonBlock v-for="n in 2" :key="`skeleton-${n}`" class="h-72 rounded-2xl" />
+    </div>
+
+    <div v-else-if="achievements.items.length === 0" class="card grid place-items-center gap-2 p-10 text-center">
       <AppIcon name="award" :size="28" class="text-ink-mute" />
       <p class="text-sm text-ink-soft">Ao bater uma meta, sua conquista aparece aqui.</p>
     </div>
 
-    <ul class="grid gap-5 sm:grid-cols-2">
+    <ul v-else class="grid gap-5 sm:grid-cols-2">
       <li
         v-for="a in achievements.items"
         :id="`achv-${a.id}`"

@@ -4,6 +4,7 @@ import { apiFetch } from '../../api/client.js'
 import { useSessionStore } from '../../stores/session.js'
 import { usePush } from '../../composables/usePush.js'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonBlock from '../../components/SkeletonBlock.vue'
 
 type PrefKey =
   | 'likes'
@@ -33,6 +34,8 @@ const session = useSessionStore()
 const { supported, subscribe, unsubscribe, getSubscription, permission } = usePush()
 
 const subscribed = ref(false)
+const subscribedKnown = ref(false)
+const loaded = ref(false)
 const busy = ref(false)
 const busyTest = ref(false)
 const status = ref<string | null>(null)
@@ -63,13 +66,17 @@ const OPTIONS: Array<{ key: PrefKey; label: string; hint: string; icon: string }
 ]
 
 async function loadPrefs(): Promise<void> {
-  if (!session.spaceId) return
+  if (!session.spaceId) {
+    loaded.value = true
+    return
+  }
   loading.value = true
   try {
     const data = await apiFetch<Prefs>('/api/notification-preferences', { query: { space: session.spaceId } })
     prefs.value = { ...prefs.value, ...data }
   } finally {
     loading.value = false
+    loaded.value = true
   }
 }
 
@@ -103,18 +110,22 @@ async function saveTime(value: string): Promise<void> {
 }
 
 async function refresh(): Promise<void> {
-  const existing = await getSubscription()
-  subscribed.value = Boolean(existing) && Notification.permission === 'granted'
-  if (subscribed.value && existing && session.spaceId) {
-    try {
-      await apiFetch('/api/notification-preferences', {
-        method: 'PUT',
-        query: { space: session.spaceId },
-        body: { subscription: existing.toJSON() },
-      })
-    } catch {
-      // best-effort sync
+  try {
+    const existing = await getSubscription()
+    subscribed.value = Boolean(existing) && Notification.permission === 'granted'
+    if (subscribed.value && existing && session.spaceId) {
+      try {
+        await apiFetch('/api/notification-preferences', {
+          method: 'PUT',
+          query: { space: session.spaceId },
+          body: { subscription: existing.toJSON() },
+        })
+      } catch {
+        // best-effort sync
+      }
     }
+  } finally {
+    subscribedKnown.value = true
   }
 }
 
@@ -189,8 +200,9 @@ onMounted(async () => {
         <p class="mt-1 text-sm text-ink-soft">Avisos de atividade no celular.</p>
         <p v-if="status" class="mt-1 text-xs text-ink-mute" role="status">{{ status }}</p>
       </div>
+      <SkeletonBlock v-if="!subscribedKnown" class="h-8 w-24 shrink-0 rounded-lg" />
       <button
-        v-if="!subscribed"
+        v-else-if="!subscribed"
         v-busy="busy"
         class="btn btn-secondary btn-sm shrink-0"
         :disabled="busy"
@@ -218,7 +230,11 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="card divide-y divide-line/60">
+    <div v-if="!loaded" class="card space-y-3 p-4">
+      <SkeletonBlock v-for="n in 5" :key="`skeleton-${n}`" class="h-10 w-full rounded-xl" />
+    </div>
+
+    <div v-else class="card divide-y divide-line/60">
       <p class="eyebrow px-4 pb-2 pt-4">O que me avisar</p>
       <label
         v-for="option in OPTIONS"
