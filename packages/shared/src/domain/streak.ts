@@ -1,5 +1,5 @@
 import type { PeriodStatus } from '../constants/index.js'
-import type { ISODate } from './dates.js'
+import { diffDays, type ISODate } from './dates.js'
 
 export interface StreakPeriodLike {
   status: PeriodStatus
@@ -23,4 +23,30 @@ export function computeStreak(periods: StreakPeriodLike[]): number {
     else break
   }
   return streak
+}
+
+export interface DayStreak {
+  current: number
+  best: number
+}
+
+/**
+ * Counts consecutive calendar days with at least one reading log.
+ * `current` counts the run that ends today or yesterday (an older run is
+ * considered broken, but the user can still read today to extend it);
+ * `best` is the all-time record. Duplicate dates are ignored.
+ */
+export function computeDayStreak(dates: ISODate[], today: ISODate): DayStreak {
+  const unique = [...new Set(dates)].sort()
+  let best = 0
+  let run = 0
+  let previous: ISODate | null = null
+  for (const day of unique) {
+    run = previous !== null && diffDays(previous, day) === 1 ? run + 1 : 1
+    if (run > best) best = run
+    previous = day
+  }
+  const last = unique[unique.length - 1]
+  const lag = last === undefined ? -1 : diffDays(last, today)
+  return { current: lag === 0 || lag === 1 ? run : 0, best }
 }

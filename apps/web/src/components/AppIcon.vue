@@ -31,6 +31,8 @@ const ICONS: Record<string, string> = {
   sync: '<path d="M20 11a8 8 0 0 0-14-4"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4"/><path d="M20 19v-4h-4"/>',
   space: '<path d="M4 5h16v14H4z"/><path d="M8 5v14"/>',
   camera: '<path d="M4 8h3l1.6-2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.3"/>',
+  flame:
+    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
 }
 </script>
 

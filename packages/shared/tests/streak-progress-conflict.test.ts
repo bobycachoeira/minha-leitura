@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeProgress, computeStreak, resolveLWW } from '../src/index.js'
+import { computeDayStreak, computeProgress, computeStreak, resolveLWW } from '../src/index.js'
 
 describe('computeStreak', () => {
   const periods = [
@@ -26,6 +26,43 @@ describe('computeStreak', () => {
     expect(
       computeStreak([{ status: 'nao_batida', startDate: '2026-10-05', endDate: '2026-10-11' }]),
     ).toBe(0)
+  })
+})
+
+describe('computeDayStreak', () => {
+  it('returns zero without logs', () => {
+    expect(computeDayStreak([], '2026-10-13')).toEqual({ current: 0, best: 0 })
+  })
+
+  it('counts a run ending today', () => {
+    expect(computeDayStreak(['2026-10-11', '2026-10-12', '2026-10-13'], '2026-10-13')).toEqual({
+      current: 3,
+      best: 3,
+    })
+  })
+
+  it('keeps the current run when the last read day was yesterday', () => {
+    expect(computeDayStreak(['2026-10-11', '2026-10-12'], '2026-10-13')).toEqual({
+      current: 2,
+      best: 2,
+    })
+  })
+
+  it('breaks the current streak after a missed day but keeps the record', () => {
+    expect(
+      computeDayStreak(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-10', '2026-10-11'], '2026-10-13'),
+    ).toEqual({ current: 0, best: 3 })
+  })
+
+  it('ignores duplicate and unsorted dates', () => {
+    expect(computeDayStreak(['2026-10-13', '2026-10-11', '2026-10-12', '2026-10-13'], '2026-10-13')).toEqual({
+      current: 3,
+      best: 3,
+    })
+  })
+
+  it('does not count runs starting in the future', () => {
+    expect(computeDayStreak(['2026-10-20'], '2026-10-13')).toEqual({ current: 0, best: 1 })
   })
 })
 

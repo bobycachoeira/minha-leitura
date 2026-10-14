@@ -356,9 +356,12 @@ function h_reading_get_api_dashboard(c) {
     return a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   })
 
+  var dayStreak = shared.computeDayStreak(Object.keys(byDay), shared.todayISODate())
+
   return http.ok(c, {
     activeGoals: activeGoals,
     streak: shared.computeStreak(streakInputs),
+    dayStreak: dayStreak,
     pagesByDay: pagesByDay,
   })
 }

@@ -73,6 +73,10 @@ push automático; avaliação = **meia-estrela + resenha pública**; Diário =
 - **Ajuste Desejos × Estante: ✅.** Campo `owned` (com backfill): **Desejos** =
   quero comprar; **Estante** = já tenho (pode ser a próxima leitura). A fila
   “ler a seguir” agora sai da Estante (tenho + ainda não comecei).
+- **Ajuste Metas — sequência de dias: ✅.** Card “Sequência atual” segue contando
+  períodos batidos; novo card “Dias seguidos lendo” mostra a sequência atual de
+  dias com registro e o recorde (`computeDayStreak` em `@ml/shared`, exposto em
+  `/api/dashboard` como `dayStreak`).
 
 ## Testes E2E (Playwright)
 

@@ -42,6 +42,7 @@ __export(hooks_entry_exports, {
   buildAchievementPayload: () => buildAchievementPayload,
   buildTasteProfile: () => buildTasteProfile,
   canEdit: () => canEdit,
+  computeDayStreak: () => computeDayStreak,
   computePeriodProgress: () => computePeriodProgress,
   computePeriodStatus: () => computePeriodStatus,
   computeProgress: () => computeProgress,
@@ -299,6 +300,20 @@ function computeStreak(periods) {
     else break;
   }
   return streak;
+}
+function computeDayStreak(dates, today) {
+  const unique = [...new Set(dates)].sort();
+  let best = 0;
+  let run = 0;
+  let previous = null;
+  for (const day of unique) {
+    run = previous !== null && diffDays(previous, day) === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+    previous = day;
+  }
+  const last = unique[unique.length - 1];
+  const lag = last === void 0 ? -1 : diffDays(last, today);
+  return { current: lag === 0 || lag === 1 ? run : 0, best };
 }
 
 // src/domain/conflict.ts

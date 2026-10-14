@@ -12,6 +12,7 @@ import AppIcon from '../../components/AppIcon.vue'
 
 interface DashboardData {
   streak: number
+  dayStreak: { current: number; best: number }
   pagesByDay: Array<{ date: string; pages: number }>
 }
 
@@ -19,7 +20,7 @@ const library = useLibraryStore()
 const goals = useGoalsStore()
 const session = useSessionStore()
 
-const dashboard = ref<DashboardData>({ streak: 0, pagesByDay: [] })
+const dashboard = ref<DashboardData>({ streak: 0, dayStreak: { current: 0, best: 0 }, pagesByDay: [] })
 const showGoalForm = ref(false)
 const chartDays = ref(14)
 const recovering = ref(false)
@@ -69,12 +70,29 @@ onMounted(async () => {
       </button>
     </header>
 
-    <div class="card relative overflow-hidden p-6">
-      <div class="absolute -right-6 -top-8 text-[7rem] leading-none text-oxblood/5">✓</div>
-      <p class="eyebrow">Sequência atual</p>
-      <div class="mt-1 flex items-baseline gap-2">
-        <span class="stat-num text-5xl text-oxblood">{{ dashboard.streak }}</span>
-        <span class="text-sm text-ink-soft">período(s) batido(s) em sequência</span>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div class="card relative overflow-hidden p-6">
+        <div class="absolute -right-6 -top-8 text-[7rem] leading-none text-oxblood/5">✓</div>
+        <p class="eyebrow">Sequência atual</p>
+        <div class="mt-1 flex items-baseline gap-2">
+          <span class="stat-num text-5xl text-oxblood">{{ dashboard.streak }}</span>
+          <span class="text-sm text-ink-soft">período(s) batido(s) em sequência</span>
+        </div>
+      </div>
+
+      <div class="card relative overflow-hidden p-6">
+        <div class="absolute -right-5 -top-6 text-oxblood/5"><AppIcon name="flame" :size="110" /></div>
+        <p class="eyebrow flex items-center gap-1.5">
+          <AppIcon name="flame" :size="14" /> Dias seguidos lendo
+        </p>
+        <div class="mt-1 flex items-baseline gap-2">
+          <span class="stat-num text-5xl text-oxblood">{{ dashboard.dayStreak.current }}</span>
+          <span class="text-sm text-ink-soft">dia(s) em sequência</span>
+        </div>
+        <p class="mt-2 flex items-center gap-1.5 text-xs text-ink-mute">
+          <AppIcon name="award" :size="13" />
+          Recorde: <strong class="text-ink">{{ dashboard.dayStreak.best }} dia(s)</strong>
+        </p>
       </div>
     </div>
 
