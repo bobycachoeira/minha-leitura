@@ -12,6 +12,12 @@
 onBootstrap(function (e) {
   console.log(JSON.stringify({ event: 'bootstrap', tz: $os.getenv('CF_TIMEZONE') || 'America/Sao_Paulo' }))
   e.next()
+  // Aplica CF_MAIL_* nas settings do PocketBase (necessário para o Magic Link).
+  try {
+    require(`${__hooks}/lib/mailer.js`).configure(e.app)
+  } catch (err) {
+    console.log(JSON.stringify({ event: 'mailer.configure_failed', error: String(err) }))
+  }
 })
 
 routerAdd("POST", "/api/auth/magic-link/request", (c) => require(`${__hooks}/lib/handlers/auth.js`).requestMagicLinkHandler(c));
