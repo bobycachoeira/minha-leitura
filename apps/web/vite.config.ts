@@ -10,7 +10,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // New versions update automatically (no prompt), so writes/sync never get stuck on an old build.
+    // New versions are applied automatically by pwa-update.ts (no prompt).
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
