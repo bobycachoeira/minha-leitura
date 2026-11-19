@@ -11,6 +11,8 @@ const errors = useErrorsStore()
 const toasts = useToastsStore()
 const sync = useSyncStore()
 const showClear = ref(false)
+const appVersion = __APP_VERSION__
+const buildId = __BUILD_ID__
 
 function clear(): void {
   errors.clear()
@@ -22,7 +24,7 @@ function buildReport(): string {
   const env = [
     'Minha Leitura — diagnóstico',
     `Gerado em: ${new Date().toISOString()}`,
-    `Versão: ${__APP_VERSION__} (build ${__BUILD_ID__})`,
+    `Versão: ${appVersion} (build ${buildId})`,
     `App: ${window.location.origin}`,
     `Online: ${navigator.onLine ? 'sim' : 'não'}`,
     `Plataforma: ${navigator.platform || '—'}`,
@@ -67,6 +69,9 @@ async function copyReport(): Promise<void> {
       <div>
         <p class="eyebrow flex items-center gap-1.5"><AppIcon name="bell" :size="14" /> Diagnóstico</p>
         <h1 class="display-hero mt-1 text-3xl">Erros recentes</h1>
+        <p class="mt-1 text-xs text-ink-mute">
+          Versão {{ appVersion }} · build <span class="font-mono">{{ buildId }}</span>
+        </p>
       </div>
       <div class="flex shrink-0 gap-2">
         <button class="btn btn-secondary btn-sm" @click="copyReport">
