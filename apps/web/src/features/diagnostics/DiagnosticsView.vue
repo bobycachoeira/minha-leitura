@@ -72,7 +72,7 @@ async function copyReport(): Promise<void> {
         <p class="mt-1 text-xs text-ink-mute">
           Versão {{ appVersion }} · build <span class="font-mono">{{ buildId }}</span>
         </p>
-        <p class="mt-1 text-xs text-sage">Atualiza ao reabrir; aviso durante o uso.</p>
+        <p class="mt-1 text-xs text-sage">Atualiza ao reabrir ou ao voltar para o app; aviso durante o uso.</p>
       </div>
       <div class="flex shrink-0 gap-2">
         <button class="btn btn-secondary btn-sm" @click="copyReport">
